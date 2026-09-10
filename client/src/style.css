@@ -1224,8 +1224,8 @@ body {
 }
 
 .ai-main {
-  margin-left: 256px;
-  padding: 100px 40px 40px;
+  margin: 0 auto;
+  padding: 30px 40px 40px;
   max-width: 1450px;
 }
 
@@ -1519,8 +1519,8 @@ body {
 }
 
 .messages-main {
-  margin-left: 256px;
-  padding: 100px 40px 40px;
+  margin: 0 auto;
+  padding: 30px 40px 40px;
   max-width: 1450px;
 }
 
@@ -2002,8 +2002,8 @@ body {
 }
 
 .profile-main {
-  margin-left: 256px;
-  padding: 100px 40px 50px;
+  margin: 0 auto;
+  padding: 30px 40px 50px;
   max-width: 1450px;
 }
 
@@ -2587,8 +2587,8 @@ body {
 }
 
 .edit-profile-main {
-  margin-left: 256px;
-  padding: 100px 40px 50px;
+  margin: 0 auto;
+  padding: 30px 40px 50px;
   max-width: 1450px;
 }
 
@@ -2997,8 +2997,8 @@ body {
 }
 
 .settings-main {
-  margin-left: 256px;
-  padding: 100px 40px 50px;
+  margin: 0 auto;
+  padding: 30px 40px 50px;
   max-width: 1450px;
 }
 
@@ -3360,8 +3360,8 @@ body {
 }
 
 .help-main {
-  margin-left: 256px;
-  padding: 112px 40px 50px;
+  margin: 0 auto;
+  padding: 30px 40px 50px;
   max-width: 1400px;
 }
 
@@ -3684,8 +3684,8 @@ body {
 }
 
 .notification-main {
-  margin-left: 256px;
-  padding: 120px 40px 50px;
+  margin: 0 auto;
+  padding: 30px 40px 50px;
   max-width: 1400px;
 }
 
@@ -4044,7 +4044,6 @@ body {
 .balance-page {
   min-height: 100vh;
   background: #faf9ff;
-  margin-left: 256px;
 }
 
 .balance-main {
@@ -4305,7 +4304,6 @@ body {
 .your-project-page {
   min-height: 100vh;
   background: #faf9ff;
-  margin-left: 256px;
 }
 
 .your-project-main {
@@ -4669,7 +4667,6 @@ body {
 .share-page {
   min-height: 100vh;
   background: #faf9ff;
-  margin-left: 256px;
 }
 
 .share-main {
@@ -4953,7 +4950,6 @@ body {
 
 .settings-page {
   min-height: 100vh;
-  margin-left: 256px;
   background: #faf9ff;
 }
 
@@ -5176,7 +5172,6 @@ body {
 
 .skill-profile-page {
   min-height: 100vh;
-  margin-left: 256px;
   background: #faf9ff;
 }
 

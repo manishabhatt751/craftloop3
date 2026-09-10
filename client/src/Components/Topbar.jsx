@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 
 function TopBar() {
+  const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
@@ -219,13 +220,14 @@ function TopBar() {
                 </NavLink>
 
                 {/* Account Settings */}
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                <NavLink
+                  to="/edit-profile"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
                 >
                   ⚙️
                   <span>Account Settings</span>
-                </button>
+                </NavLink>
 
                 {/* Notification */}
                 <NavLink
@@ -254,6 +256,10 @@ function TopBar() {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    setProfileOpen(false)
+                    navigate('/login')
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-500 hover:bg-red-50"
                 >
                   🚪

@@ -1,0 +1,16 @@
+{
+  "name": "craftloop3",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CraftLoop - Connect skills, discover talent, create opportunities",
+  "scripts": {
+    "dev": "npm run dev --prefix client",
+    "client": "npm run dev --prefix client",
+    "server": "npm run dev --prefix server",
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

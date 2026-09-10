@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 function Profile() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Projects')
 
   const tabs = ['Projects', 'Courses', 'Skills']
@@ -55,11 +57,12 @@ function Profile() {
                 </div>
 
                 <button
-  className="edit-profile-btn"
-  onClick={() => window.location.href = '/edit-profile'}
->
-  Edit Profile
-</button>
+                  type="button"
+                  className="edit-profile-btn"
+                  onClick={() => navigate('/edit-profile')}
+                >
+                  Edit Profile
+                </button>
               </div>
 
               <p className="profile-bio">

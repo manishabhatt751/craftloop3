@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 
 function Sidebar() {
   const navItems = [
@@ -34,13 +34,15 @@ function Sidebar() {
 
       {/* Logo */}
       <div className="mb-10 px-3">
-        <h1 className="text-2xl font-bold tracking-tight text-purple-700">
-          Craft<span className="text-purple-400">Loop</span>
-        </h1>
+        <Link to="/dashboard" className="block">
+          <h1 className="text-2xl font-bold tracking-tight text-purple-700">
+            Craft<span className="text-purple-400">Loop</span>
+          </h1>
 
-        <p className="mt-1 text-xs text-gray-400">
-          Create. Connect. Grow.
-        </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Create. Connect. Grow.
+          </p>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -80,9 +82,12 @@ function Sidebar() {
             Discover creators, collaborate and improve your profile.
           </p>
 
-          <button className="mt-3 text-xs font-semibold text-purple-600 hover:text-purple-800">
+          <Link
+            to="/community"
+            className="mt-3 inline-block text-xs font-semibold text-purple-600 hover:text-purple-800"
+          >
             Explore →
-          </button>
+          </Link>
         </div>
 
       </div>

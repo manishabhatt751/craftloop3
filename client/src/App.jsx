@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
+import AppLayout from './Components/AppLayout'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -17,45 +18,34 @@ import Share from './pages/share'
 import SkillProfile from './pages/skillprofile'
 import CourseDetails from './pages/coursedetails'
 
-
-
-
-
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
-
         <Route path="/login" element={<Login />} />
 
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Authenticated Application Layout with persistent Sidebar & Topbar */}
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/create" element={<Create />} />
+          <Route path="/ai-chat" element={<AIChat />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/helpsupport" element={<HelpSupport />} />
+          <Route path="/notification" element={<Notification />} />
+          <Route path="/balance" element={<Balance />} />
+          <Route path="/your-project" element={<YourProject />} />
+          <Route path="/share" element={<Share />} />
+          <Route path="/skill-profile" element={<SkillProfile />} />
+          <Route path="/course-details" element={<CourseDetails />} />
+        </Route>
 
-        <Route path="/community" element={<Community />} />
-
-        <Route path="/create" element={<Create />} />
-
-        <Route path="/ai-chat" element={<AIChat />} />
-
-        <Route path="/messages" element={<Messages />} />
-
-        <Route path="/profile" element={<Profile />} />
-
-        <Route path="/edit-profile" element={<EditProfile />} />
-
-        <Route path="/helpsupport" element={<HelpSupport />} />
-        <Route path="/notification" element={<Notification />} />
-        <Route path="/balance" element={<Balance />} />
-        <Route path="/your-project" element={<YourProject />} />
-        <Route path="/share" element={<Share />} />
-        <Route path="/skill-profile" element={<SkillProfile />} />
-        <Route path="/course-details"element={<CourseDetails />}/>
-
-        
-        
-        
-
+        {/* Catch-all fallback */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   )

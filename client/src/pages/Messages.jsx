@@ -39,7 +39,7 @@ function Messages() {
     },
   ]
 
-  const chatMessages = [
+  const [chatMessages, setChatMessages] = useState([
     {
       sender: 'them',
       text: 'Hey! I loved your latest project. The visual style looks really clean.',
@@ -65,12 +65,34 @@ function Messages() {
       text: 'That sounds interesting! I’d love to see it when it’s ready.',
       time: '10:42 AM',
     },
-  ]
+  ])
 
   const sendMessage = () => {
     if (!message.trim()) return
 
+    const now = new Date()
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    const userMsg = {
+      sender: 'me',
+      text: message.trim(),
+      time: timeString,
+    }
+
+    setChatMessages((prev) => [...prev, userMsg])
     setMessage('')
+
+    // Optional simulated polite response from the collaborator
+    setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          sender: 'them',
+          text: 'Great point! Let me review the details and get right back to you.',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ])
+    }, 1200)
   }
 
   return (
