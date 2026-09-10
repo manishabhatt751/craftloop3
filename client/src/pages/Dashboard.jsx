@@ -3,64 +3,320 @@ import Topbar from '../components/Topbar'
 
 function Dashboard() {
   return (
-    <div className="min-h-screen bg-[#faf9ff]">
+    <div className="dashboard">
 
-      {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Area */}
-      <div className="ml-64">
+      <div className="dashboard-main">
 
-        {/* Top Bar */}
         <Topbar />
 
-        {/* Dashboard Content */}
-        <main className="px-8 pb-12 pt-28">
+        <main className="dashboard-content">
 
           {/* Welcome */}
-          <section className="mb-8">
-            <p className="mb-2 text-sm font-medium uppercase tracking-wider text-purple-500">
-              Welcome back
-            </p>
+          <section className="welcome-section">
+            <div>
+              <span className="welcome-label">CREATOR DASHBOARD</span>
 
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                  Good evening, Creator 👋
-                </h1>
+              <h1>Good evening, Creator 👋</h1>
 
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-                  Here's what's happening with your creative journey today.
-                </p>
-              </div>
-
-              <button className="w-fit rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-700">
-                + Create New
-              </button>
+              <p>
+                Here's what's happening with your work today.
+              </p>
             </div>
+
+            <button className="create-new-btn">
+              + Create New
+            </button>
           </section>
 
-          {/* Temporary Content */}
-          <section className="rounded-3xl border border-purple-100 bg-white p-10 shadow-sm">
-            <div className="text-center">
-              <p className="text-sm font-medium text-purple-600">
-                Dashboard foundation ready
-              </p>
 
-              <h2 className="mt-2 text-2xl font-bold text-gray-900">
-                Your CraftLoop workspace
-              </h2>
+          {/* Statistics */}
+          <section className="stats-grid">
 
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-500">
-                Your statistics, growth overview, messages, AI assistant,
-                recommendations and community sections will appear here.
+            <div className="stat-card">
+              <div className="stat-header">
+                <span>Followers</span>
+                <span className="stat-icon">♧</span>
+              </div>
+
+              <h2>2,480</h2>
+
+              <p className="stat-growth">
+                ↑ 12.5% <span>this month</span>
               </p>
             </div>
+
+
+            <div className="stat-card">
+              <div className="stat-header">
+                <span>Profile Views</span>
+                <span className="stat-icon">◉</span>
+              </div>
+
+              <h2>8,642</h2>
+
+              <p className="stat-growth">
+                ↑ 8.2% <span>this month</span>
+              </p>
+            </div>
+
+
+            <div className="stat-card">
+              <div className="stat-header">
+                <span>Likes</span>
+                <span className="stat-icon">♡</span>
+              </div>
+
+              <h2>1,294</h2>
+
+              <p className="stat-growth">
+                ↑ 18.4% <span>this month</span>
+              </p>
+            </div>
+
+
+            <div className="stat-card">
+              <div className="stat-header">
+                <span>Messages</span>
+                <span className="stat-icon">✉</span>
+              </div>
+
+              <h2>36</h2>
+
+              <p className="message-growth">
+                ● 5 new messages
+              </p>
+            </div>
+
+          </section>
+
+
+          {/* Messages + Projects */}
+          <section className="dashboard-two-column">
+
+            {/* Recent Messages */}
+            <div className="dashboard-card">
+
+              <div className="card-title-row">
+                <div>
+                  <h3>Recent Messages</h3>
+                  <p>Stay connected with your community.</p>
+                </div>
+
+                <button className="view-all-btn">
+                  View All
+                </button>
+              </div>
+
+
+              <div className="message-row">
+                <div className="message-avatar avatar-purple">
+                  A
+                </div>
+
+                <div className="message-details">
+                  <strong>Alex Morgan</strong>
+                  <p>Loved your latest design project!</p>
+                </div>
+
+                <span className="message-time">10m</span>
+              </div>
+
+
+              <div className="message-row">
+                <div className="message-avatar avatar-blue">
+                  S
+                </div>
+
+                <div className="message-details">
+                  <strong>Sarah Williams</strong>
+                  <p>Can you share the tutorial?</p>
+                </div>
+
+                <span className="message-time">1h</span>
+              </div>
+
+
+              <div className="message-row">
+                <div className="message-avatar avatar-pink">
+                  R
+                </div>
+
+                <div className="message-details">
+                  <strong>Ryan Lee</strong>
+                  <p>Your project looks amazing.</p>
+                </div>
+
+                <span className="message-time">3h</span>
+              </div>
+
+            </div>
+
+
+            {/* Your Projects */}
+            <div className="dashboard-card">
+
+              <div className="card-title-row">
+                <div>
+                  <h3>Your Projects</h3>
+                  <p>Your latest creative work.</p>
+                </div>
+
+                <button className="view-all-btn">
+                  View All
+                </button>
+              </div>
+
+
+              <div className="project-row">
+
+                <div className="project-thumbnail purple-thumb">
+                  🎨
+                </div>
+
+                <div className="project-details">
+                  <strong>Brand Identity Design</strong>
+                  <p>Graphic Design • 2 days ago</p>
+                </div>
+
+                <span className="project-status published">
+                  Published
+                </span>
+
+              </div>
+
+
+              <div className="project-row">
+
+                <div className="project-thumbnail blue-thumb">
+                  ✦
+                </div>
+
+                <div className="project-details">
+                  <strong>Social Media Kit</strong>
+                  <p>Branding • 5 days ago</p>
+                </div>
+
+                <span className="project-status published">
+                  Published
+                </span>
+
+              </div>
+
+
+              <div className="project-row">
+
+                <div className="project-thumbnail pink-thumb">
+                  ✎
+                </div>
+
+                <div className="project-details">
+                  <strong>Creative Portfolio</strong>
+                  <p>UI Design • 1 week ago</p>
+                </div>
+
+                <span className="project-status draft">
+                  Draft
+                </span>
+
+              </div>
+
+            </div>
+
+          </section>
+
+
+          {/* Recommendations */}
+          <section className="recommendations">
+
+            <div className="recommendation-heading">
+
+              <span>CRAFTLOOP RECOMMENDATIONS</span>
+
+              <h2>Ideas to help you grow ✨</h2>
+
+              <p>
+                Small improvements can make a big difference to your
+                creative journey.
+              </p>
+
+            </div>
+
+
+            <div className="recommendation-grid">
+
+              <div className="recommendation-card">
+                <div className="recommendation-icon">🎨</div>
+
+                <div>
+                  <h3>Explore Creative Tools</h3>
+
+                  <p>
+                    Try new design and creative tools to improve your
+                    workflow and discover new ideas.
+                  </p>
+
+                  <button>Explore Tools →</button>
+                </div>
+              </div>
+
+
+              <div className="recommendation-card">
+                <div className="recommendation-icon">◷</div>
+
+                <div>
+                  <h3>Manage Your Time</h3>
+
+                  <p>
+                    Break large projects into smaller tasks and create
+                    a simple routine for consistent progress.
+                  </p>
+
+                  <button>View Tips →</button>
+                </div>
+              </div>
+
+
+              <div className="recommendation-card">
+                <div className="recommendation-icon">✦</div>
+
+                <div>
+                  <h3>Grow Your Skills</h3>
+
+                  <p>
+                    Learn new techniques, follow useful tutorials and
+                    keep improving your creative skills.
+                  </p>
+
+                  <button>Start Learning →</button>
+                </div>
+              </div>
+
+
+              <div className="recommendation-card">
+                <div className="recommendation-icon">💡</div>
+
+                <div>
+                  <h3>Know What Users Like</h3>
+
+                  <p>
+                    Keep your designs clear, useful and visually
+                    engaging to create a better experience.
+                  </p>
+
+                  <button>See Insights →</button>
+                </div>
+              </div>
+
+            </div>
+
           </section>
 
         </main>
 
       </div>
+
     </div>
   )
 }

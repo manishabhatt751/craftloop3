@@ -30,6 +30,7 @@ function TopBar() {
 
           {/* Notifications */}
           <button
+            type="button"
             onClick={() => {
               setNotificationsOpen(!notificationsOpen)
               setProfileOpen(false)
@@ -42,18 +43,23 @@ function TopBar() {
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-purple-600" />
           </button>
 
-          {/* Notification popup */}
+          {/* Notification Popup */}
           {notificationsOpen && (
             <div className="absolute right-16 top-14 w-80 rounded-2xl border border-purple-100 bg-white p-4 shadow-xl">
 
               <div className="mb-4 flex items-center justify-between">
+
                 <h3 className="font-semibold text-gray-800">
                   Notifications
                 </h3>
 
-                <button className="text-xs text-purple-600">
+                <button
+                  type="button"
+                  className="text-xs text-purple-600"
+                >
                   Mark all read
                 </button>
+
               </div>
 
               <div className="space-y-3">
@@ -62,6 +68,7 @@ function TopBar() {
                   <p className="text-sm font-medium text-gray-700">
                     🎉 Your profile is getting attention
                   </p>
+
                   <p className="mt-1 text-xs text-gray-400">
                     You received 12 new profile views.
                   </p>
@@ -71,6 +78,7 @@ function TopBar() {
                   <p className="text-sm font-medium text-gray-700">
                     💬 New message
                   </p>
+
                   <p className="mt-1 text-xs text-gray-400">
                     Someone wants to collaborate with you.
                   </p>
@@ -80,6 +88,7 @@ function TopBar() {
                   <p className="text-sm font-medium text-gray-700">
                     ⭐ New review
                   </p>
+
                   <p className="mt-1 text-xs text-gray-400">
                     You received a new creator review.
                   </p>
@@ -90,8 +99,9 @@ function TopBar() {
             </div>
           )}
 
-          {/* Profile */}
+          {/* Profile Button */}
           <button
+            type="button"
             onClick={() => {
               setProfileOpen(!profileOpen)
               setNotificationsOpen(false)
@@ -106,6 +116,7 @@ function TopBar() {
             />
 
             <div className="hidden text-left md:block">
+
               <p className="text-sm font-semibold text-gray-800">
                 Creator
               </p>
@@ -113,6 +124,7 @@ function TopBar() {
               <p className="text-xs text-gray-400">
                 @creator
               </p>
+
             </div>
 
             <span className="text-xs text-gray-400">
@@ -135,6 +147,7 @@ function TopBar() {
                 />
 
                 <div>
+
                   <p className="font-semibold text-gray-800">
                     Creator
                   </p>
@@ -142,6 +155,7 @@ function TopBar() {
                   <p className="text-xs text-gray-400">
                     @creator
                   </p>
+
                 </div>
 
               </div>
@@ -149,61 +163,99 @@ function TopBar() {
               {/* Main Profile Options */}
               <div className="p-2">
 
+                {/* Skill Profile */}
                 <NavLink
-                  to="/profile"
+                  to="/skill-profile"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
                 >
-                  🎓
+                  👤
                   <span>Skill Profile</span>
                 </NavLink>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Balance */}
+                <NavLink
+                  to="/balance"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   💰
                   <span>Balance</span>
-                </button>
+                </NavLink>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Your Project */}
+                <NavLink
+                  to="/your-project"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   📁
                   <span>Your Project</span>
-                </button>
+                </NavLink>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
-                  ↗️
+                {/* Share */}
+                <NavLink
+                  to="/share"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
+                  🔗
                   <span>Share</span>
-                </button>
+                </NavLink>
 
               </div>
 
               {/* Account */}
               <div className="border-t border-purple-100 p-2">
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Edit Profile */}
+                <NavLink
+                  to="/edit-profile"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   ✏️
                   <span>Edit Profile</span>
-                </button>
+                </NavLink>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Account Settings */}
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   ⚙️
                   <span>Account Settings</span>
                 </button>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Notification */}
+                <NavLink
+                  to="/notification"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   🔔
-                  <span>Notifications</span>
-                </button>
+                  <span>Notification</span>
+                </NavLink>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700">
+                {/* Help and Support */}
+                <NavLink
+                  to="/helpsupport"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
+                >
                   ❓
-                  <span>Help & Support</span>
-                </button>
+                  <span>Help and Support</span>
+                </NavLink>
 
               </div>
 
               {/* Logout */}
               <div className="border-t border-purple-100 p-2">
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-500 hover:bg-red-50">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-500 hover:bg-red-50"
+                >
                   🚪
                   <span>Logout</span>
                 </button>
