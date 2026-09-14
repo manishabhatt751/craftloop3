@@ -4,184 +4,309 @@ function Home() {
   return (
     <div className="min-h-screen bg-[#faf9ff] text-gray-900 font-sans">
 
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-purple-100/80 bg-white/90 px-6 py-4 backdrop-blur-md md:px-12">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-lg font-bold text-white shadow-md shadow-purple-200">
-            ✦
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-purple-700">
-            Craft<span className="text-purple-400">Loop</span>
-          </span>
-        </Link>
+      {/* Header */}
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-purple-100/80 bg-white/90 px-6 py-4 backdrop-blur">
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-gray-600 md:flex">
-          <Link to="/community" className="transition hover:text-purple-600">
-            Community
-          </Link>
-          <Link to="/create" className="transition hover:text-purple-600">
-            Create
-          </Link>
-          <Link to="/ai-chat" className="transition hover:text-purple-600">
-            AI Assistant
-          </Link>
-          <Link to="/helpsupport" className="transition hover:text-purple-600">
-            Help
-          </Link>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <Link
-            to="/login"
-            className="rounded-xl px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-50"
-          >
-            Sign In
-          </Link>
-
-          <Link
-            to="/dashboard"
-            className="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-purple-200 transition hover:bg-purple-700 active:scale-[0.98]"
-          >
-            Launch App →
-          </Link>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="relative overflow-hidden px-6 pb-20 pt-16 md:px-12 md:pb-28 md:pt-24">
-        {/* Subtle background glow */}
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-purple-200/40 blur-3xl" />
-
-        <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50/80 px-4 py-1.5 text-xs font-semibold text-purple-700 backdrop-blur">
-            <span className="flex h-2 w-2 rounded-full bg-purple-600" />
-            Empowering the Next Generation of Creators
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-lg font-bold text-white shadow-md">
+            C
           </div>
 
-          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-6xl sm:leading-[1.15]">
-            Connect skills. <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              Discover talent.
-            </span>{' '}
-            <br className="hidden sm:inline" />
-            Create opportunities.
-          </h1>
+          <div>
+            <h1 className="text-xl font-bold text-purple-700">
+              CraftLoop
+            </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
-            A creative ecosystem where designers, developers, and creators showcase projects,
-            collaborate in real-time, leverage AI assistants, and grow their community together.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/dashboard"
-              className="rounded-2xl bg-purple-600 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-purple-200 transition hover:bg-purple-700 active:scale-95"
-            >
-              Get Started Free →
-            </Link>
-
-            <Link
-              to="/community"
-              className="rounded-2xl border border-purple-200 bg-white px-8 py-4 text-base font-semibold text-purple-700 shadow-sm transition hover:bg-purple-50 active:scale-95"
-            >
-              Explore Community
-            </Link>
-          </div>
-
-          {/* Stats Bar */}
-          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-6 rounded-3xl border border-purple-100 bg-white/80 p-6 shadow-xl shadow-purple-100/50 backdrop-blur">
-            <div>
-              <p className="text-2xl font-bold text-purple-700 sm:text-3xl">12k+</p>
-              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Active Creators</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-purple-700 sm:text-3xl">35k+</p>
-              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Projects Shared</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-purple-700 sm:text-3xl">99.4%</p>
-              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Collaboration Rate</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="border-t border-purple-100 bg-white px-6 py-20 md:px-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-14 text-center">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-600">
-              Why CraftLoop
-            </span>
-            <h2 className="mt-2 text-3xl font-bold text-gray-900 sm:text-4xl">
-              Everything you need to showcase and thrive
-            </h2>
-            <p className="mt-3 text-sm text-gray-500">
-              Tools designed for modern creative collaboration.
+            <p className="text-[9px] font-semibold tracking-[0.25em] text-gray-400">
+              CREATE • CONNECT • GROW
             </p>
           </div>
+        </Link>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {/* Feature 1 */}
-            <div className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-8 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-100">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl text-purple-700">
-                🎨
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">Showcase Your Work</h3>
-              <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                Build polished portfolios for UI/UX, graphic design, branding, and development
-                services with ease.
-              </p>
+        {/* Navigation */}
+        <nav className="hidden items-center gap-8 md:flex">
+
+          <a
+            href="#community"
+            className="text-sm font-medium text-gray-600 transition hover:text-purple-600"
+          >
+            Community
+          </a>
+
+          <a
+            href="#create"
+            className="text-sm font-medium text-gray-600 transition hover:text-purple-600"
+          >
+            Create
+          </a>
+
+          <a
+            href="#ai"
+            className="text-sm font-medium text-gray-600 transition hover:text-purple-600"
+          >
+            AI Assistant
+          </a>
+
+          <a
+            href="#help"
+            className="text-sm font-medium text-gray-600 transition hover:text-purple-600"
+          >
+            Help
+          </a>
+
+          {/* Login */}
+          <Link
+            to="/login"
+            className="rounded-xl border border-purple-200 px-5 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-50"
+          >
+            Login
+          </Link>
+
+        </nav>
+      </header>
+
+
+      {/* Main */}
+      <main>
+
+        {/* Hero Section */}
+        <section className="mx-auto max-w-7xl px-6 py-20 md:py-28">
+
+          <div className="mx-auto max-w-4xl text-center">
+
+            {/* Small Label */}
+            <div className="mb-6 inline-flex rounded-full border border-purple-200 bg-purple-50 px-5 py-2 text-sm font-semibold text-purple-700">
+              CREATE • CONNECT • GROW
             </div>
 
-            {/* Feature 2 */}
-            <div className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-8 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-100">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl text-purple-700">
-                🤖
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">CraftLoop AI</h3>
-              <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                Receive instant creative brainstorming, design critique, course outlines, and
-                personalized growth advice.
-              </p>
+            {/* Heading */}
+            <h2 className="text-4xl font-extrabold leading-tight text-gray-900 md:text-6xl">
+              Welcome to{' '}
+              <span className="text-purple-600">
+                CraftLoop
+              </span>
+            </h2>
+
+            {/* Description */}
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-gray-600 md:text-lg">
+              A creative platform where creators can showcase their skills,
+              build projects and courses, while viewers discover skills,
+              learn and connect.
+            </p>
+
+            {/* Role Question */}
+            <p className="mt-8 text-sm font-semibold text-gray-500">
+              Choose how you want to continue
+            </p>
+
+
+            {/* Role Buttons */}
+            <div className="mt-6 flex flex-col justify-center gap-4 sm:flex-row">
+
+              {/* Creator */}
+              <Link
+                to="/login?role=creator"
+                className="group rounded-2xl bg-purple-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-purple-200 transition hover:-translate-y-1 hover:bg-purple-700"
+              >
+                <span className="block">
+                  Start as Creator
+                </span>
+
+                <span className="mt-1 block text-xs font-medium text-purple-100">
+                  Create • Showcase • Grow
+                </span>
+              </Link>
+
+
+              {/* Viewer */}
+              <Link
+                to="/login?role=viewer"
+                className="group rounded-2xl border-2 border-purple-200 bg-white px-8 py-4 text-base font-bold text-purple-700 shadow-sm transition hover:-translate-y-1 hover:border-purple-400 hover:bg-purple-50"
+              >
+                <span className="block">
+                  Start as Viewer
+                </span>
+
+                <span className="mt-1 block text-xs font-medium text-purple-400">
+                  Discover • Learn • Connect
+                </span>
+              </Link>
+
             </div>
 
-            {/* Feature 3 */}
-            <div className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-8 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-100">
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl text-purple-700">
-                💬
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">Direct Messaging</h3>
-              <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                Connect directly with fellow creatives, exchange real-time feedback, and form
-                high-impact collaborations.
-              </p>
+
+            {/* Existing User */}
+            <div className="mt-8 text-sm text-gray-500">
+
+              Already have an account?{' '}
+
+              <Link
+                to="/login"
+                className="font-bold text-purple-600 transition hover:text-purple-800"
+              >
+                Login
+              </Link>
+
             </div>
+
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Bottom CTA */}
-      <section className="border-t border-purple-100 bg-purple-700 px-6 py-16 text-center text-white md:px-12">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold sm:text-4xl">Ready to elevate your creative journey?</h2>
-          <p className="mt-4 text-purple-200">
-            Join thousands of creators who share, learn, and grow on CraftLoop every day.
-          </p>
-          <div className="mt-8 flex justify-center gap-4">
-            <Link
-              to="/dashboard"
-              className="rounded-2xl bg-white px-8 py-3.5 text-sm font-semibold text-purple-700 shadow-lg transition hover:bg-purple-50 active:scale-95"
-            >
-              Open Dashboard Now
-            </Link>
+
+        {/* Features Section */}
+        <section className="border-y border-purple-100 bg-white px-6 py-20">
+
+          <div className="mx-auto max-w-6xl">
+
+            {/* Section Heading */}
+            <div className="mb-12 text-center">
+
+              <p className="text-sm font-bold uppercase tracking-widest text-purple-600">
+                Why CraftLoop?
+              </p>
+
+              <h3 className="mt-3 text-3xl font-bold text-gray-900">
+                One platform for creativity and learning
+              </h3>
+
+            </div>
+
+
+            {/* Feature Cards */}
+            <div className="grid gap-6 md:grid-cols-3">
+
+
+              {/* Create */}
+              <div
+                id="create"
+                className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-7 transition hover:-translate-y-1 hover:shadow-lg"
+              >
+
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-xl">
+                  ✦
+                </div>
+
+                <h4 className="text-xl font-bold">
+                  Create
+                </h4>
+
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  Creators can showcase projects, offer services and create
+                  courses or tutorials.
+                </p>
+
+              </div>
+
+
+              {/* Connect */}
+              <div
+                id="community"
+                className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-7 transition hover:-translate-y-1 hover:shadow-lg"
+              >
+
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-xl">
+                  ◎
+                </div>
+
+                <h4 className="text-xl font-bold">
+                  Connect
+                </h4>
+
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  Join the community, communicate with others and discover
+                  creative talent.
+                </p>
+
+              </div>
+
+
+              {/* Grow */}
+              <div
+                id="ai"
+                className="rounded-3xl border border-purple-100 bg-[#faf9ff] p-7 transition hover:-translate-y-1 hover:shadow-lg"
+              >
+
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-xl">
+                  ✨
+                </div>
+
+                <h4 className="text-xl font-bold">
+                  Grow
+                </h4>
+
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                  Use learning resources and AI assistance to improve skills,
+                  projects and creative growth.
+                </p>
+
+              </div>
+
+            </div>
+
           </div>
-        </div>
-      </section>
+
+        </section>
+
+
+        {/* Bottom CTA */}
+        <section
+          id="help"
+          className="px-6 py-20"
+        >
+
+          <div className="mx-auto max-w-4xl rounded-[2rem] bg-purple-600 px-8 py-14 text-center text-white shadow-xl shadow-purple-200">
+
+            <h3 className="text-3xl font-bold md:text-4xl">
+              Ready to join CraftLoop?
+            </h3>
+
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-purple-100 md:text-base">
+              Choose your role and start creating, learning and connecting.
+            </p>
+
+
+            {/* CTA Buttons */}
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+
+              <Link
+                to="/login?role=creator"
+                className="rounded-xl bg-white px-7 py-3.5 font-bold text-purple-700 transition hover:bg-purple-50"
+              >
+                Start as Creator
+              </Link>
+
+              <Link
+                to="/login?role=viewer"
+                className="rounded-xl border border-white/40 px-7 py-3.5 font-bold text-white transition hover:bg-white/10"
+              >
+                Start as Viewer
+              </Link>
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </main>
+
 
       {/* Footer */}
-      <footer className="border-t border-purple-100 bg-white px-6 py-8 text-center text-xs text-gray-400">
-        <p>© 2026 CraftLoop. All rights reserved.</p>
+      <footer className="border-t border-purple-100 bg-white px-6 py-8">
+
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-sm text-gray-500 md:flex-row">
+
+          <p>
+            © 2026 CraftLoop. All rights reserved.
+          </p>
+
+          <p className="font-medium text-purple-600">
+            CREATE • CONNECT • GROW
+          </p>
+
+        </div>
+
       </footer>
 
     </div>

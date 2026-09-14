@@ -4,14 +4,20 @@ import { useNavigate } from 'react-router-dom'
 function EditProfile() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState({
-    name: 'Alex Morgan',
-    username: 'alexmorgan',
-    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
-    location: 'India',
-    profession: 'Designer',
-    skills: 'UI/UX Design, Graphic Design, Branding, Figma',
-  })
+  const savedProfile = JSON.parse(
+    localStorage.getItem('craftloopCreatorProfile') || 'null'
+  )
+
+  const [formData, setFormData] = useState(
+    savedProfile || {
+      name: 'Alex Morgan',
+      username: 'alexmorgan',
+      bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
+      location: 'India',
+      profession: 'Designer',
+      skills: 'UI/UX Design, Graphic Design, Branding, Figma',
+    }
+  )
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -25,6 +31,11 @@ function EditProfile() {
   const handleSubmit = (e) => {
     e.preventDefault()
 
+    localStorage.setItem(
+      'craftloopCreatorProfile',
+      JSON.stringify(formData)
+    )
+
     alert('Profile updated successfully!')
 
     navigate('/profile')
@@ -36,7 +47,6 @@ function EditProfile() {
 
         {/* Header */}
         <div className="edit-profile-header">
-
           <div>
             <p className="edit-profile-label">PROFILE SETTINGS</p>
 
@@ -48,12 +58,12 @@ function EditProfile() {
           </div>
 
           <button
+            type="button"
             className="back-profile-btn"
             onClick={() => navigate('/profile')}
           >
             ← Back to Profile
           </button>
-
         </div>
 
         {/* Form */}
@@ -80,6 +90,9 @@ function EditProfile() {
                   <button
                     type="button"
                     className="change-photo-btn"
+                    onClick={() =>
+                      alert('Profile photo upload will be added later.')
+                    }
                   >
                     Change Photo
                   </button>
@@ -136,6 +149,7 @@ function EditProfile() {
                     onChange={handleChange}
                     placeholder="Tell people about yourself..."
                     rows="5"
+                    maxLength="250"
                   />
 
                   <span className="character-count">
@@ -267,7 +281,9 @@ function EditProfile() {
                   .map((skill) => skill.trim())
                   .filter(Boolean)
                   .map((skill) => (
-                    <span key={skill}>{skill}</span>
+                    <span key={skill}>
+                      {skill}
+                    </span>
                   ))}
 
               </div>

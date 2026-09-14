@@ -3,238 +3,205 @@ import { useNavigate } from 'react-router-dom'
 
 function Notification() {
   const navigate = useNavigate()
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
-      icon: '🎉',
       title: 'Your profile is getting attention',
-      description: 'You received 12 new profile views.',
+      message: 'More creators are viewing your profile.',
       time: '10 minutes ago',
-      unread: true,
+      type: 'profile',
+      read: false,
     },
     {
       id: 2,
-      icon: '💬',
       title: 'New message',
-      description: 'Alex wants to collaborate with you.',
+      message: 'You received a new message from Maya Creative.',
       time: '1 hour ago',
-      unread: true,
+      type: 'message',
+      read: false,
     },
     {
       id: 3,
-      icon: '⭐',
-      title: 'New review received',
-      description: 'You received a new creator review.',
-      time: '3 hours ago',
-      unread: true,
-    },
-    {
-      id: 4,
-      icon: '❤️',
-      title: 'Your project was liked',
-      description: 'Your Brand Identity Design project received 8 likes.',
+      title: 'New review',
+      message: 'Someone left feedback on your project.',
       time: 'Yesterday',
-      unread: false,
-    },
-    {
-      id: 5,
-      icon: '👥',
-      title: 'New follower',
-      description: 'Maya Chen started following you.',
-      time: 'Yesterday',
-      unread: false,
-    },
-    {
-      id: 6,
-      icon: '📚',
-      title: 'Course recommendation',
-      description: 'A new course matches your creative skills.',
-      time: '2 days ago',
-      unread: false,
+      type: 'review',
+      read: true,
     },
   ])
 
-  const markAllRead = () => {
-    setNotifications(
-      notifications.map((notification) => ({
-        ...notification,
-        unread: false,
-      }))
-    )
-  }
+  const unreadCount = notifications.filter(
+    (notification) => !notification.read
+  ).length
 
   const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((notification) =>
+    setNotifications((current) =>
+      current.map((notification) =>
         notification.id === id
-          ? { ...notification, unread: false }
+          ? { ...notification, read: true }
           : notification
       )
     )
   }
 
-  const unreadCount = notifications.filter(
-    (notification) => notification.unread
-  ).length
+  const markAllAsRead = () => {
+    setNotifications((current) =>
+      current.map((notification) => ({
+        ...notification,
+        read: true,
+      }))
+    )
+  }
+
+  const deleteNotification = (id) => {
+    setNotifications((current) =>
+      current.filter((notification) => notification.id !== id)
+    )
+  }
+
+  const getIcon = (type) => {
+    if (type === 'profile') return '👤'
+    if (type === 'message') return '💬'
+    if (type === 'review') return '⭐'
+    return '🔔'
+  }
 
   return (
-    <div className="notification-page">
+    <div className="min-h-[calc(100vh-80px)] bg-[#faf9ff] p-6">
+      {/* Header */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-purple-600">
+            Creator Updates
+          </p>
 
-      <main className="notification-main">
+          <h1 className="mt-1 text-3xl font-bold text-gray-900">
+            Notifications
+          </h1>
 
-        {/* Header */}
-        <section className="notification-header">
+          <p className="mt-1 text-gray-500">
+            Stay updated with activity on your CraftLoop account.
+          </p>
+        </div>
 
+        <button
+          onClick={() => navigate('/profile')}
+          className="rounded-xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-600 hover:bg-gray-50"
+        >
+          ← Back to Profile
+        </button>
+      </div>
+
+      {/* Notification Card */}
+      <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm">
+        {/* Top */}
+        <div className="flex items-center justify-between border-b border-gray-100 p-5">
           <div>
-            <p className="notification-label">
-              ACTIVITY CENTER
-            </p>
+            <h2 className="text-lg font-bold text-gray-900">
+              Recent Notifications
+            </h2>
 
-            <h1>
-              Your <span>Notifications</span>
-            </h1>
-
-            <p>
-              Stay updated with messages, followers, reviews and activity.
+            <p className="mt-1 text-sm text-gray-500">
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${
+                    unreadCount > 1 ? 's' : ''
+                  }`
+                : 'You are all caught up'}
             </p>
           </div>
 
-          <button
-            className="notification-back-btn"
-            onClick={() => navigate('/dashboard')}
-          >
-            ← Back to Home
-          </button>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="rounded-lg bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100"
+            >
+              Mark all read
+            </button>
+          )}
+        </div>
 
-        </section>
-
-        {/* Summary */}
-        <section className="notification-summary">
-
-          <div className="notification-summary-card">
-
-            <div className="notification-summary-icon">
+        {/* Notifications */}
+        {notifications.length === 0 ? (
+          <div className="p-14 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-2xl">
               🔔
             </div>
 
-            <div>
-              <p>Unread Notifications</p>
-              <h2>{unreadCount}</h2>
-            </div>
+            <h2 className="mt-4 text-xl font-bold">
+              No notifications
+            </h2>
 
-          </div>
-
-          <button
-            className="mark-all-btn"
-            onClick={markAllRead}
-          >
-            ✓ Mark all as read
-          </button>
-
-        </section>
-
-        {/* Notifications */}
-        <section className="notification-card">
-
-          <div className="notification-card-header">
-
-            <div>
-              <h2>Recent Activity</h2>
-
-              <p>
-                Here is what's happening around your profile.
-              </p>
-            </div>
-
-            <span>
-              {notifications.length} notifications
-            </span>
-
-          </div>
-
-          <div className="notification-list">
-
-            {notifications.map((notification) => (
-
-              <div
-                key={notification.id}
-                className={`notification-item ${
-                  notification.unread ? 'notification-unread' : ''
-                }`}
-                onClick={() => markAsRead(notification.id)}
-              >
-
-                <div className="notification-item-icon">
-                  {notification.icon}
-                </div>
-
-                <div className="notification-item-content">
-
-                  <div className="notification-title-row">
-
-                    <h3>
-                      {notification.title}
-                    </h3>
-
-                    {notification.unread && (
-                      <span className="unread-dot" />
-                    )}
-
-                  </div>
-
-                  <p>
-                    {notification.description}
-                  </p>
-
-                  <span className="notification-time">
-                    {notification.time}
-                  </span>
-
-                </div>
-
-                <button
-                  className="notification-arrow"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    markAsRead(notification.id)
-                  }}
-                >
-                  →
-                </button>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </section>
-
-        {/* Bottom Help */}
-        <section className="notification-help">
-
-          <div className="notification-help-icon">
-            💡
-          </div>
-
-          <div>
-            <h3>Want to control your notifications?</h3>
-
-            <p>
-              Manage your notification preferences from Account Settings.
+            <p className="mt-2 text-sm text-gray-500">
+              You don't have any notifications right now.
             </p>
           </div>
+        ) : (
+          <div>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`flex gap-4 border-b border-gray-100 p-5 transition last:border-b-0 ${
+                  notification.read
+                    ? 'bg-white'
+                    : 'bg-purple-50/50'
+                }`}
+              >
+                {/* Icon */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xl">
+                  {getIcon(notification.type)}
+                </div>
 
-          <button
-            onClick={() => navigate('/account-settings')}
-          >
-            Notification Settings →
-          </button>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col justify-between gap-2 sm:flex-row">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">
+                          {notification.title}
+                        </h3>
 
-        </section>
+                        {!notification.read && (
+                          <span className="h-2 w-2 rounded-full bg-purple-600" />
+                        )}
+                      </div>
 
-      </main>
+                      <p className="mt-1 text-sm leading-6 text-gray-500">
+                        {notification.message}
+                      </p>
 
+                      <p className="mt-2 text-xs text-gray-400">
+                        {notification.time}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex shrink-0 gap-2">
+                      {!notification.read && (
+                        <button
+                          onClick={() => markAsRead(notification.id)}
+                          className="rounded-lg px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                        >
+                          Mark read
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() =>
+                          deleteNotification(notification.id)
+                        }
+                        className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

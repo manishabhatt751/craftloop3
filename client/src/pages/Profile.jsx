@@ -5,6 +5,19 @@ function Profile() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Projects')
 
+  const savedProfile = JSON.parse(
+    localStorage.getItem('craftloopCreatorProfile') || 'null'
+  )
+
+  const profile = savedProfile || {
+    name: 'Alex Morgan',
+    username: 'alexmorgan',
+    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
+    location: 'India',
+    profession: 'Designer',
+    skills: 'UI/UX Design, Graphic Design, Branding, Figma',
+  }
+
   const tabs = ['Projects', 'Courses', 'Skills']
 
   const projects = [
@@ -25,14 +38,10 @@ function Profile() {
     },
   ]
 
-  const skills = [
-    'UI/UX Design',
-    'Graphic Design',
-    'Branding',
-    'Figma',
-    'Adobe Illustrator',
-    'Canva',
-  ]
+  const skills = profile.skills
+    .split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean)
 
   return (
     <div className="profile-page">
@@ -46,14 +55,21 @@ function Profile() {
           <div className="profile-info">
 
             <div className="profile-avatar">
-              AM
+              {profile.name
+                .split(' ')
+                .map((word) => word[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase()}
             </div>
 
             <div className="profile-details">
+
               <div className="profile-name-row">
+
                 <div>
-                  <h1>Alex Morgan</h1>
-                  <p>@alexmorgan</p>
+                  <h1>{profile.name}</h1>
+                  <p>@{profile.username}</p>
                 </div>
 
                 <button
@@ -63,25 +79,24 @@ function Profile() {
                 >
                   Edit Profile
                 </button>
+
               </div>
 
               <p className="profile-bio">
-                Creative designer passionate about branding,
-                visual storytelling and creating meaningful experiences.
+                {profile.bio}
               </p>
 
               <div className="profile-meta">
-                <span>📍 India</span>
-                <span>🎨 Designer</span>
+                <span>📍 {profile.location}</span>
+                <span>🎨 {profile.profession}</span>
                 <span>✨ Available for work</span>
               </div>
+
             </div>
 
           </div>
 
-          {/* Profile Stats */}
           <div className="profile-stats">
-
             <div>
               <strong>2,480</strong>
               <span>Followers</span>
@@ -101,7 +116,6 @@ function Profile() {
               <strong>12</strong>
               <span>Courses</span>
             </div>
-
           </div>
 
         </section>
@@ -109,19 +123,26 @@ function Profile() {
         {/* Profile Content */}
         <section className="profile-content">
 
-          {/* Left */}
           <div className="profile-left">
 
+            {/* Tabs */}
             <div className="profile-tabs">
+
               {tabs.map((tab) => (
                 <button
                   key={tab}
-                  className={activeTab === tab ? 'active-profile-tab' : ''}
+                  type="button"
+                  className={
+                    activeTab === tab
+                      ? 'active-profile-tab'
+                      : ''
+                  }
                   onClick={() => setActiveTab(tab)}
                 >
                   {tab}
                 </button>
               ))}
+
             </div>
 
             {/* Projects */}
@@ -141,14 +162,26 @@ function Profile() {
                     </div>
 
                     <div className="profile-project-content">
+
                       <span>{project.category}</span>
 
                       <h3>{project.title}</h3>
 
                       <div className="profile-project-bottom">
+
                         <small>{project.status}</small>
-                        <button>View →</button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate('/your-project')
+                          }
+                        >
+                          View →
+                        </button>
+
                       </div>
+
                     </div>
 
                   </div>
@@ -160,12 +193,22 @@ function Profile() {
             {/* Courses */}
             {activeTab === 'Courses' && (
               <div className="empty-profile-state">
+
                 <div>🎓</div>
+
                 <h3>Your Courses</h3>
+
                 <p>
                   Courses you create will appear here.
                 </p>
-                <button>Create Course →</button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/create')}
+                >
+                  Create Course →
+                </button>
+
               </div>
             )}
 
@@ -176,13 +219,17 @@ function Profile() {
                 <h2>Skills & Expertise</h2>
 
                 <p>
-                  Showcase the skills you use in your creative work.
+                  Show the skills you use in your creative work.
                 </p>
 
                 <div className="skills-list">
+
                   {skills.map((skill) => (
-                    <span key={skill}>{skill}</span>
+                    <span key={skill}>
+                      {skill}
+                    </span>
                   ))}
+
                 </div>
 
               </div>
@@ -190,18 +237,29 @@ function Profile() {
 
           </div>
 
-          {/* Right */}
+          {/* Right Side */}
           <aside className="profile-right">
 
             {/* Skill Profile */}
             <div className="profile-side-card">
 
               <div className="side-card-heading">
+
                 <h3>Skill Profile</h3>
-                <button>View</button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/skill-profile')
+                  }
+                >
+                  View
+                </button>
+
               </div>
 
               <div className="skill-progress">
+
                 <div>
                   <span>UI/UX Design</span>
                   <strong>85%</strong>
@@ -210,9 +268,11 @@ function Profile() {
                 <div className="progress-track">
                   <div className="progress-fill progress-85"></div>
                 </div>
+
               </div>
 
               <div className="skill-progress">
+
                 <div>
                   <span>Graphic Design</span>
                   <strong>78%</strong>
@@ -221,9 +281,11 @@ function Profile() {
                 <div className="progress-track">
                   <div className="progress-fill progress-78"></div>
                 </div>
+
               </div>
 
               <div className="skill-progress">
+
                 <div>
                   <span>Branding</span>
                   <strong>72%</strong>
@@ -232,6 +294,7 @@ function Profile() {
                 <div className="progress-track">
                   <div className="progress-fill progress-72"></div>
                 </div>
+
               </div>
 
             </div>
@@ -240,15 +303,23 @@ function Profile() {
             <div className="profile-side-card balance-card">
 
               <div className="side-card-heading">
+
                 <h3>Balance</h3>
+
                 <span>💳</span>
+
               </div>
 
               <p>Available balance</p>
 
               <h2>₹12,450</h2>
 
-              <button>View Balance →</button>
+              <button
+                type="button"
+                onClick={() => navigate('/balance')}
+              >
+                View Balance →
+              </button>
 
             </div>
 
@@ -256,32 +327,54 @@ function Profile() {
             <div className="profile-side-card">
 
               <div className="side-card-heading">
+
                 <h3>Your Project</h3>
-                <button>View All</button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/your-project')
+                  }
+                >
+                  View All
+                </button>
+
               </div>
 
               <div className="mini-project">
-                <div className="mini-project-icon">✦</div>
+
+                <div className="mini-project-icon">
+                  ✦
+                </div>
 
                 <div>
                   <h4>Brand Identity</h4>
                   <p>Published</p>
                 </div>
+
               </div>
 
               <div className="mini-project">
-                <div className="mini-project-icon second">✦</div>
+
+                <div className="mini-project-icon second">
+                  ✦
+                </div>
 
                 <div>
                   <h4>Poster Collection</h4>
                   <p>Draft</p>
                 </div>
+
               </div>
 
             </div>
 
             {/* Share */}
-            <button className="share-profile-btn">
+            <button
+              type="button"
+              className="share-profile-btn"
+              onClick={() => navigate('/share')}
+            >
               ↗ Share Profile
             </button>
 

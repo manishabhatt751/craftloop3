@@ -4,30 +4,85 @@ import { useNavigate } from 'react-router-dom'
 function Share() {
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
+  const [message, setMessage] = useState('')
 
-  const profileLink = 'https://craftloop.app/creator/alexmorgan'
+  const savedProfile = JSON.parse(
+    localStorage.getItem('craftloopCreatorProfile') || 'null'
+  )
+
+  const profile = savedProfile || {
+    name: 'Alex Morgan',
+    username: 'alexmorgan',
+    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
+    profession: 'Designer',
+  }
+
+  const profileLink = `https://craftloop.app/creator/${profile.username}`
 
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(profileLink)
       setCopied(true)
+      setMessage('Profile link copied successfully!')
 
       setTimeout(() => {
         setCopied(false)
-      }, 2000)
+        setMessage('')
+      }, 2500)
     } catch {
-      setCopied(false)
+      setMessage('Unable to copy the link.')
     }
+  }
+
+  const shareProfile = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${profile.name}'s CraftLoop Profile`,
+          text: `Check out ${profile.name}'s creator profile on CraftLoop.`,
+          url: profileLink,
+        })
+      } catch {
+        // User cancelled sharing
+      }
+    } else {
+      await copyLink()
+    }
+  }
+
+  const shareWhatsApp = () => {
+    const text = `Check out ${profile.name}'s CraftLoop profile: ${profileLink}`
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      '_blank'
+    )
+  }
+
+  const shareEmail = () => {
+    const subject = `Check out ${profile.name}'s CraftLoop Profile`
+    const body = `Check out this creator profile on CraftLoop:\n\n${profileLink}`
+
+    window.location.href =
+      `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  const handleMoreShare = () => {
+    shareProfile()
   }
 
   return (
     <div className="share-page">
       <main className="share-main">
 
+        {/* Header */}
         <section className="share-header">
           <div>
             <p className="share-label">SHARE YOUR WORK</p>
-            <h1>Share <span>Your Profile</span></h1>
+
+            <h1>
+              Share <span>Your Profile</span>
+            </h1>
+
             <p>
               Let others discover your skills, projects and creative work.
             </p>
@@ -35,14 +90,16 @@ function Share() {
 
           <button
             className="share-back-btn"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/profile')}
           >
-            ← Back to Home
+            ← Back to Profile
           </button>
         </section>
 
+        {/* Main Content */}
         <section className="share-layout">
 
+          {/* Profile Card */}
           <div className="share-profile-card">
 
             <div className="share-avatar">
@@ -52,12 +109,18 @@ function Share() {
               />
             </div>
 
-            <h2>Alex Morgan</h2>
-            <p className="share-username">@alexmorgan</p>
+            <h2>{profile.name}</h2>
+
+            <p className="share-username">
+              @{profile.username}
+            </p>
 
             <p className="share-bio">
-              Graphic designer and creative learner passionate about
-              branding, UI design and visual storytelling.
+              {profile.bio}
+            </p>
+
+            <p className="text-sm text-purple-600">
+              {profile.profession}
             </p>
 
             <div className="share-stats">
@@ -86,16 +149,23 @@ function Share() {
 
           </div>
 
+          {/* Share Options */}
           <div className="share-options-card">
 
-            <p className="share-small-label">PROFILE LINK</p>
-            <h2>Share your CraftLoop profile</h2>
+            <p className="share-small-label">
+              PROFILE LINK
+            </p>
+
+            <h2>
+              Share your CraftLoop profile
+            </h2>
 
             <p className="share-description">
               Copy your profile link and share it with friends,
               clients or other creators.
             </p>
 
+            {/* Link Box */}
             <div className="share-link-box">
               <span>{profileLink}</span>
 
@@ -104,39 +174,62 @@ function Share() {
               </button>
             </div>
 
+            {/* Success Message */}
+            {message && (
+              <p className="mt-3 text-sm font-medium text-purple-600">
+                {message}
+              </p>
+            )}
+
+            {/* Divider */}
             <div className="share-divider">
               <span>OR SHARE VIA</span>
             </div>
 
+            {/* Social Buttons */}
             <div className="share-social-grid">
 
-              <button className="share-social-btn">
+              <button
+                className="share-social-btn"
+                onClick={shareWhatsApp}
+              >
                 <span>💬</span>
                 WhatsApp
               </button>
 
-              <button className="share-social-btn">
+              <button
+                className="share-social-btn"
+                onClick={shareEmail}
+              >
                 <span>📧</span>
                 Email
               </button>
 
-              <button className="share-social-btn">
+              <button
+                className="share-social-btn"
+                onClick={copyLink}
+              >
                 <span>🔗</span>
-                Copy Link
+                {copied ? 'Copied!' : 'Copy Link'}
               </button>
 
-              <button className="share-social-btn">
+              <button
+                className="share-social-btn"
+                onClick={handleMoreShare}
+              >
                 <span>📱</span>
                 More
               </button>
 
             </div>
 
+            {/* Tip */}
             <div className="share-tip">
               <span>✨</span>
 
               <div>
                 <h3>Grow your presence</h3>
+
                 <p>
                   A complete profile helps people understand your
                   skills and discover your work.

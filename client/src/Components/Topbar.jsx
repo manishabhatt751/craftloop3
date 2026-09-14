@@ -221,7 +221,7 @@ function TopBar() {
 
                 {/* Account Settings */}
                 <NavLink
-                  to="/edit-profile"
+                  to="/setting"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700"
                 >

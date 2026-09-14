@@ -3,209 +3,267 @@ import { useNavigate } from 'react-router-dom'
 
 function HelpSupport() {
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
+
   const [openFaq, setOpenFaq] = useState(null)
+
+  const [form, setForm] = useState({
+    subject: '',
+    message: '',
+  })
+
+  const [submitted, setSubmitted] = useState(false)
 
   const faqs = [
     {
-      question: 'How do I create a project?',
+      question: 'How do I create a project or service?',
       answer:
-        'Go to Create from the sidebar and choose Project / Service. Add your project details and save it.'
+        'Open the Create section from the sidebar, select Project / Service, fill in the required details and publish your work.',
     },
     {
-      question: 'How can I edit my profile?',
+      question: 'How do I create a course?',
       answer:
-        'Open your profile menu and select Edit Profile. You can update your basic and professional information.'
+        'Open Create, choose Course / Tutorial and add your course information. After creating the course, you can add and manage lessons from Course Details.',
     },
     {
-      question: 'How can I contact another creator?',
+      question: 'How can I edit my creator profile?',
       answer:
-        'Open Messages from the sidebar and select a creator to start a conversation.'
+        'Open your profile from the top-right profile menu and select Edit Profile. Update your information and save the changes.',
     },
     {
-      question: 'How can I share my profile?',
+      question: 'Where can I see my projects?',
       answer:
-        'Open your profile and use the Share option to share your creator profile.'
+        'Open Your Project from the profile menu or use the Your Projects section on your profile.',
     },
     {
-      question: 'How can I report a problem?',
+      question: 'Can I contact another creator?',
       answer:
-        'Use the Report a Problem option below and describe the issue you are experiencing.'
+        'Yes. The Messages section allows you to communicate with other creators. The current version is a frontend demonstration.',
     },
   ]
 
-  const filteredFaqs = faqs.filter((faq) =>
-    faq.question.toLowerCase().includes(search.toLowerCase())
-  )
+  const handleSubmit = (e) => {
+    e.preventDefault()
+
+    if (!form.subject.trim() || !form.message.trim()) {
+      alert('Please fill in both fields.')
+      return
+    }
+
+    setSubmitted(true)
+
+    setForm({
+      subject: '',
+      message: '',
+    })
+  }
 
   return (
-    <div className="help-page">
+    <div className="min-h-[calc(100vh-80px)] bg-[#faf9ff] p-6">
+      {/* Header */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-purple-600">
+            CraftLoop Support
+          </p>
 
-      <main className="help-main">
+          <h1 className="mt-1 text-3xl font-bold text-gray-900">
+            Help & Support
+          </h1>
 
-        {/* Header */}
-        <section className="help-header">
-          <div>
-            <p className="help-label">SUPPORT CENTER</p>
-
-            <h1>
-              How can we <span>help?</span>
-            </h1>
-
-            <p>
-              Find answers, explore helpful resources, or contact our support
-              team.
-            </p>
-          </div>
-
-          <button
-            className="help-back-btn"
-            onClick={() => navigate('/dashboard')}
-          >
-            ← Back to Home
-          </button>
-        </section>
-
-        {/* Search */}
-        <div className="help-search-box">
-          <span>🔍</span>
-
-          <input
-            type="text"
-            placeholder="Search for help..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <p className="mt-1 text-gray-500">
+            Find answers or send us a support request.
+          </p>
         </div>
 
-        {/* Quick Help */}
-        <section className="help-quick-grid">
+        <button
+          onClick={() => navigate('/profile')}
+          className="rounded-xl border border-gray-200 bg-white px-5 py-3 font-semibold text-gray-600 hover:bg-gray-50"
+        >
+          ← Back to Profile
+        </button>
+      </div>
 
-          <div className="help-quick-card">
-            <div className="help-icon">📚</div>
-
-            <h3>Getting Started</h3>
-
-            <p>
-              Learn how to create your profile, projects and courses.
-            </p>
-
-            <button>Learn More →</button>
-          </div>
-
-          <div className="help-quick-card">
-            <div className="help-icon">💬</div>
-
-            <h3>Contact Support</h3>
-
-            <p>
-              Need personal help? Send a message to our support team.
-            </p>
-
-            <button>Contact Us →</button>
-          </div>
-
-          <div className="help-quick-card">
-            <div className="help-icon">🛡️</div>
-
-            <h3>Community Guidelines</h3>
-
-            <p>
-              Learn how to keep CraftLoop friendly and respectful.
-            </p>
-
-            <button>View Guidelines →</button>
-          </div>
-
-        </section>
-
-        {/* FAQ */}
-        <section className="help-faq-section">
-
-          <div className="help-section-heading">
-            <div>
-              <p className="help-small-label">FAQ</p>
-              <h2>Frequently Asked Questions</h2>
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* Support Options */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
+              📚
             </div>
 
-            <span>
-              {filteredFaqs.length} questions
-            </span>
+            <h2 className="mt-4 font-bold">Help Center</h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Find guides and information about CraftLoop features.
+            </p>
+
+            <button
+              onClick={() =>
+                window.scrollTo({
+                  top: 500,
+                  behavior: 'smooth',
+                })
+              }
+              className="mt-4 font-semibold text-purple-600 hover:text-purple-700"
+            >
+              View FAQs →
+            </button>
           </div>
 
-          <div className="faq-list">
+          <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
+              💬
+            </div>
 
-            {filteredFaqs.length > 0 ? (
-              filteredFaqs.map((faq, index) => (
-                <div className="faq-item" key={faq.question}>
+            <h2 className="mt-4 font-bold">Contact Support</h2>
 
-                  <button
-                    className="faq-question"
-                    onClick={() =>
-                      setOpenFaq(openFaq === index ? null : index)
-                    }
-                  >
-                    <span>{faq.question}</span>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Send us a message if you need help with something.
+            </p>
 
-                    <span className="faq-arrow">
-                      {openFaq === index ? '−' : '+'}
-                    </span>
-                  </button>
+            <button
+              onClick={() =>
+                document
+                  .getElementById('support-form')
+                  ?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className="mt-4 font-semibold text-purple-600 hover:text-purple-700"
+            >
+              Contact us →
+            </button>
+          </div>
 
-                  {openFaq === index && (
-                    <div className="faq-answer">
-                      {faq.answer}
-                    </div>
-                  )}
+          <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
+              🛡️
+            </div>
 
-                </div>
-              ))
-            ) : (
-              <div className="no-help-results">
-                <div>🔎</div>
-                <h3>No results found</h3>
-                <p>Try searching with a different keyword.</p>
+            <h2 className="mt-4 font-bold">Safety & Community</h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Keep your interactions respectful, helpful and professional.
+            </p>
+
+            <button
+              onClick={() => alert('Community guidelines are available in the Community section.')}
+              className="mt-4 font-semibold text-purple-600 hover:text-purple-700"
+            >
+              Learn more →
+            </button>
+          </div>
+        </div>
+
+        {/* FAQs */}
+        <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-gray-900">
+            Frequently Asked Questions
+          </h2>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Quick answers to common questions.
+          </p>
+
+          <div className="mt-5 divide-y divide-gray-100">
+            {faqs.map((faq, index) => (
+              <div key={faq.question}>
+                <button
+                  onClick={() =>
+                    setOpenFaq(openFaq === index ? null : index)
+                  }
+                  className="flex w-full items-center justify-between gap-4 py-5 text-left"
+                >
+                  <span className="font-semibold text-gray-800">
+                    {faq.question}
+                  </span>
+
+                  <span className="shrink-0 text-xl text-purple-600">
+                    {openFaq === index ? '−' : '+'}
+                  </span>
+                </button>
+
+                {openFaq === index && (
+                  <div className="pb-5 pr-8 text-sm leading-6 text-gray-500">
+                    {faq.answer}
+                  </div>
+                )}
               </div>
-            )}
-
+            ))}
           </div>
+        </div>
 
-        </section>
+        {/* Contact Form */}
+        <div
+          id="support-form"
+          className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm"
+        >
+          <h2 className="text-xl font-bold text-gray-900">
+            Send a Support Request
+          </h2>
 
-        {/* Support */}
-        <section className="support-section">
+          <p className="mt-1 text-sm text-gray-500">
+            Tell us what you need help with.
+          </p>
 
-          <div className="support-card">
-            <div className="support-card-icon">🐛</div>
+          {submitted && (
+            <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700">
+              Your support request has been submitted successfully.
+              Our support system will be connected to the backend later.
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Subject
+              </label>
+
+              <input
+                type="text"
+                value={form.subject}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    subject: e.target.value,
+                  })
+                }
+                placeholder="What do you need help with?"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-purple-400 focus:bg-white"
+              />
+            </div>
 
             <div>
-              <h3>Report a Problem</h3>
-              <p>
-                Found something that isn't working correctly?
-                Let us know.
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Message
+              </label>
+
+              <textarea
+                rows="6"
+                maxLength="1000"
+                value={form.message}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    message: e.target.value,
+                  })
+                }
+                placeholder="Describe your issue..."
+                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-purple-400 focus:bg-white"
+              />
+
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {form.message.length}/1000
               </p>
             </div>
 
-            <button>Report Problem</button>
-          </div>
-
-          <div className="support-card">
-            <div className="support-card-icon">✉️</div>
-
-            <div>
-              <h3>Still need help?</h3>
-              <p>
-                Our support team is here to help with your questions.
-              </p>
-            </div>
-
-            <button>Contact Support</button>
-          </div>
-
-        </section>
-
-      </main>
-
+            <button
+              type="submit"
+              className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 hover:bg-purple-700"
+            >
+              Submit Request
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
