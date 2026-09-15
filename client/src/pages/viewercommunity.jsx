@@ -1,202 +1,350 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 function ViewerCommunity() {
+  const [post, setPost] = useState('')
+  const [posts, setPosts] = useState([])
   const [likedPosts, setLikedPosts] = useState([])
+  const [commentText, setCommentText] = useState({})
+  const [comments, setComments] = useState({})
 
-  const posts = [
-    {
-      id: 1,
-      name: 'Alex Morgan',
-      username: '@alexdesigns',
-      role: 'UI UX Designer',
-      time: '2h ago',
-      content:
-        'Just finished designing a new mobile app interface. What do you think about the overall layout?',
-      likes: 24,
-      comments: 8,
-      image:
-        'https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 2,
-      name: 'Sarah Wilson',
-      username: '@sarahcreates',
-      role: 'Graphic Designer',
-      time: '5h ago',
-      content:
-        'Sharing some design inspiration today. Simple layouts can create really strong visual experiences.',
-      likes: 36,
-      comments: 12,
-      image:
-        'https://images.unsplash.com/photo-1545235617-9465d2a55698?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 3,
-      name: 'Daniel Smith',
-      username: '@danielcodes',
-      role: 'Web Developer',
-      time: '1d ago',
-      content:
-        'Learning React has been a great experience. Building projects is definitely the best way to improve.',
-      likes: 18,
-      comments: 5,
-      image:
-        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80',
-    },
-  ]
+  // Load saved posts
+  useEffect(() => {
+    const savedPosts =
+      JSON.parse(localStorage.getItem('craftloop_community_posts')) || []
 
-  const toggleLike = (id) => {
-    setLikedPosts((current) =>
-      current.includes(id)
-        ? current.filter((postId) => postId !== id)
-        : [...current, id]
+    if (savedPosts.length > 0) {
+      setPosts(savedPosts)
+    } else {
+      setPosts([
+        {
+          id: 1,
+          name: 'Alex Morgan',
+          username: '@alexmorgan',
+          text: 'Just completed my first UI/UX project on CraftLoop!',
+          time: '2 hours ago',
+        },
+        {
+          id: 2,
+          name: 'Sarah Wilson',
+          username: '@sarahwilson',
+          text: 'Looking for creative people interested in design and marketing.',
+          time: '5 hours ago',
+        },
+        {
+          id: 3,
+          name: 'Daniel Smith',
+          username: '@danielsmith',
+          text: 'React is becoming much easier after practicing every day.',
+          time: '1 day ago',
+        },
+      ])
+    }
+
+    const savedComments =
+      JSON.parse(localStorage.getItem('craftloop_community_comments')) || []
+
+    setComments(savedComments)
+
+    const savedLikes =
+      JSON.parse(localStorage.getItem('craftloop_community_likes')) || []
+
+    setLikedPosts(savedLikes)
+  }, [])
+
+  // Save posts
+  useEffect(() => {
+    if (posts.length > 0) {
+      localStorage.setItem(
+        'craftloop_community_posts',
+        JSON.stringify(posts)
+      )
+    }
+  }, [posts])
+
+  // Save comments
+  useEffect(() => {
+    localStorage.setItem(
+      'craftloop_community_comments',
+      JSON.stringify(comments)
     )
+  }, [comments])
+
+  // Save likes
+  useEffect(() => {
+    localStorage.setItem(
+      'craftloop_community_likes',
+      JSON.stringify(likedPosts)
+    )
+  }, [likedPosts])
+
+  // Create Post
+  const handlePost = () => {
+    if (!post.trim()) return
+
+    const newPost = {
+      id: Date.now(),
+      name: 'Viewer',
+      username: '@viewer',
+      text: post.trim(),
+      time: 'Just now',
+    }
+
+    setPosts((prev) => [newPost, ...prev])
+    setPost('')
+  }
+
+  // Like / Unlike
+  const handleLike = (postId) => {
+    setLikedPosts((prev) =>
+      prev.includes(postId)
+        ? prev.filter((id) => id !== postId)
+        : [...prev, postId]
+    )
+  }
+
+  // Add Comment
+  const handleComment = (postId) => {
+    const text = commentText[postId]
+
+    if (!text || !text.trim()) return
+
+    const newComment = {
+      id: Date.now(),
+      name: 'Viewer',
+      text: text.trim(),
+    }
+
+    setComments((prev) => ({
+      ...prev,
+      [postId]: [...(prev[postId] || []), newComment],
+    }))
+
+    setCommentText((prev) => ({
+      ...prev,
+      [postId]: '',
+    }))
+  }
+
+  // Share Post
+  const handleShare = async (item) => {
+    const shareData = {
+      title: `${item.name}'s CraftLoop Post`,
+      text: item.text,
+      url: window.location.href,
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch {
+        console.log('Share cancelled')
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(
+          `${item.text} - ${window.location.href}`
+        )
+
+        alert('Post link copied!')
+      } catch {
+        alert('Unable to copy the post link.')
+      }
+    }
   }
 
   return (
     <div className="space-y-8">
 
+      {/* Header */}
       <section>
         <p className="text-sm font-semibold text-purple-600">
           COMMUNITY
         </p>
 
         <h1 className="mt-1 text-3xl font-bold text-gray-900">
-          Connect With Creators
+          Community
         </h1>
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-          Discover ideas, projects and conversations from the CraftLoop
-          community.
+        <p className="mt-2 text-sm text-gray-500">
+          Connect with creators, viewers and creative learners.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-purple-100 bg-white p-6">
+      {/* Create Post */}
+      <section className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm">
 
-        <div className="flex items-center gap-4">
+        <h2 className="text-lg font-bold text-gray-900">
+          Share something
+        </h2>
 
-          <img
-            src="https://i.pravatar.cc/100?img=32"
-            alt="Viewer"
-            className="h-11 w-11 rounded-full object-cover ring-2 ring-purple-100"
-          />
+        <textarea
+          value={post}
+          onChange={(e) => setPost(e.target.value)}
+          placeholder="Share your thoughts, ideas or achievements..."
+          rows="4"
+          className="mt-4 w-full resize-none rounded-2xl border border-purple-100 bg-[#faf9ff] px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+        />
+
+        <div className="mt-4 flex justify-end">
 
           <button
             type="button"
-            className="flex-1 rounded-xl border border-purple-100 bg-[#faf9ff] px-5 py-3 text-left text-sm text-gray-400 transition hover:border-purple-300"
+            onClick={handlePost}
+            className="rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
           >
-            Share something with the community...
+            Post
           </button>
 
         </div>
 
       </section>
 
+      {/* Posts */}
       <section className="space-y-5">
 
-        {posts.map((post) => {
-          const isLiked = likedPosts.includes(post.id)
+        {posts.map((item) => (
 
-          return (
-            <article
-              key={post.id}
-              className="overflow-hidden rounded-2xl border border-purple-100 bg-white"
-            >
+          <div
+            key={item.id}
+            className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm"
+          >
 
-              <div className="p-6">
+            {/* User Information */}
+            <div className="flex items-center gap-4">
 
-                <div className="flex items-center justify-between">
+              <img
+                src={`https://i.pravatar.cc/100?u=${item.id}`}
+                alt={item.name}
+                className="h-12 w-12 rounded-xl object-cover"
+              />
 
-                  <div className="flex items-center gap-3">
+              <div>
 
-                    <img
-                      src={`https://i.pravatar.cc/100?img=${post.id + 10}`}
-                      alt={post.name}
-                      className="h-11 w-11 rounded-full object-cover ring-2 ring-purple-100"
-                    />
+                <h3 className="font-bold text-gray-900">
+                  {item.name}
+                </h3>
 
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900">
-                        {post.name}
-                      </h3>
-
-                      <p className="text-xs text-gray-400">
-                        {post.username} · {post.role} · {post.time}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <button
-                    type="button"
-                    className="rounded-lg px-3 py-2 text-gray-400 hover:bg-purple-50 hover:text-purple-600"
-                  >
-                    More
-                  </button>
-
-                </div>
-
-                <p className="mt-5 text-sm leading-7 text-gray-600">
-                  {post.content}
+                <p className="text-xs text-purple-600">
+                  {item.username}
                 </p>
-
-                {post.image && (
-                  <div className="mt-5 overflow-hidden rounded-2xl bg-purple-50">
-                    <img
-                      src={post.image}
-                      alt="Community post"
-                      className="max-h-96 w-full object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="mt-5 flex items-center justify-between border-b border-gray-100 pb-4">
-
-                  <span className="text-xs text-gray-400">
-                    {post.likes + (isLiked ? 1 : 0)} likes
-                  </span>
-
-                  <span className="text-xs text-gray-400">
-                    {post.comments} comments
-                  </span>
-
-                </div>
-
-                <div className="mt-3 flex items-center gap-2">
-
-                  <button
-                    type="button"
-                    onClick={() => toggleLike(post.id)}
-                    className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                      isLiked
-                        ? 'bg-purple-600 text-white'
-                        : 'text-gray-500 hover:bg-purple-50 hover:text-purple-700'
-                    }`}
-                  >
-                    {isLiked ? 'Liked' : 'Like'}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 transition hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    Comment
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 transition hover:bg-purple-50 hover:text-purple-700"
-                  >
-                    Share
-                  </button>
-
-                </div>
 
               </div>
 
-            </article>
-          )
-        })}
+              <span className="ml-auto text-xs text-gray-400">
+                {item.time}
+              </span>
+
+            </div>
+
+            {/* Post Content */}
+            <p className="mt-5 text-sm leading-7 text-gray-600">
+              {item.text}
+            </p>
+
+            {/* Actions */}
+            <div className="mt-5 flex gap-6 border-t border-purple-50 pt-4">
+
+              <button
+                type="button"
+                onClick={() => handleLike(item.id)}
+                className={`text-sm font-semibold transition ${
+                  likedPosts.includes(item.id)
+                    ? 'text-purple-600'
+                    : 'text-gray-500 hover:text-purple-600'
+                }`}
+              >
+                {likedPosts.includes(item.id)
+                  ? '♥ Liked'
+                  : '♡ Like'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById(`comment-${item.id}`)
+                    ?.focus()
+                }
+                className="text-sm font-semibold text-gray-500 hover:text-purple-600"
+              >
+                Comment
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleShare(item)}
+                className="text-sm font-semibold text-gray-500 hover:text-purple-600"
+              >
+                Share
+              </button>
+
+            </div>
+
+            {/* Comment Box */}
+            <div className="mt-4 border-t border-purple-50 pt-4">
+
+              <div className="flex gap-3">
+
+                <input
+                  id={`comment-${item.id}`}
+                  type="text"
+                  value={commentText[item.id] || ''}
+                  onChange={(e) =>
+                    setCommentText((prev) => ({
+                      ...prev,
+                      [item.id]: e.target.value,
+                    }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleComment(item.id)
+                    }
+                  }}
+                  placeholder="Write a comment..."
+                  className="flex-1 rounded-xl border border-purple-100 bg-[#faf9ff] px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => handleComment(item.id)}
+                  className="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700"
+                >
+                  Send
+                </button>
+
+              </div>
+
+              {/* Comments */}
+              {comments[item.id]?.length > 0 && (
+                <div className="mt-4 space-y-3">
+
+                  {comments[item.id].map((comment) => (
+
+                    <div
+                      key={comment.id}
+                      className="rounded-xl bg-[#faf9ff] p-4"
+                    >
+
+                      <p className="text-xs font-bold text-purple-600">
+                        {comment.name}
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-600">
+                        {comment.text}
+                      </p>
+
+                    </div>
+
+                  ))}
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+        ))}
 
       </section>
 

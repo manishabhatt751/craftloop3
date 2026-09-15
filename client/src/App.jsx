@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
+// Creator layout
 import AppLayout from './Components/AppLayout'
 
+// Creator pages
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -20,7 +22,10 @@ import SkillProfile from './pages/skillprofile'
 import CourseDetails from './pages/coursedetails'
 import Setting from './pages/setting'
 
+// Viewer layout
 import ViewerLayout from './Components/viewerlayout'
+
+// Viewer pages
 import ViewerHome from './pages/viewerhome'
 import ViewerExplore from './pages/viewerexplore'
 import ViewerCourses from './pages/viewercourse'
@@ -29,21 +34,40 @@ import WatchLesson from './pages/watchlesson'
 import MyLearning from './pages/mylearning'
 import ViewerCommunity from './pages/viewercommunity'
 import ViewerMessages from './pages/viewermessages'
+import ViewerMessageChat from './pages/viewermessagechat'
+import ViewerProfile from './pages/viewerprofile'
+import ViewerAIChat from './pages/vieweraichat'
+import ViewerNotification from './pages/viewernotification'
+import ViewerSettings from './pages/viewersettings'
+import ViewerHelpSupport from './pages/viewerhelpsupport'
+import SavedProjects from './pages/savedprojects'
+
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
+        {/* =========================
+            HOME
+        ========================= */}
         <Route
           path="/"
           element={<Home />}
         />
 
+        {/* =========================
+            LOGIN
+        ========================= */}
         <Route
           path="/login"
           element={<Login />}
         />
 
+
+        {/* =========================
+            CREATOR SIDE
+        ========================= */}
         <Route element={<AppLayout />}>
 
           <Route
@@ -123,6 +147,10 @@ function App() {
 
         </Route>
 
+
+        {/* =========================
+            VIEWER SIDE
+        ========================= */}
         <Route element={<ViewerLayout />}>
 
           <Route
@@ -139,28 +167,73 @@ function App() {
             path="/viewercourse"
             element={<ViewerCourses />}
           />
+
           <Route
-  path="/viewercoursedetails"
-  element={<ViewerCourseDetails />}
-/>
-<Route
-  path="/watchlesson"
-  element={<WatchLesson />}
-/>
-<Route
-  path="/mylearning"
-  element={<MyLearning />}
-/>
-<Route
-  path="/viewercommunity"
-  element={<ViewerCommunity />}
-/>
-<Route
-  path="/viewermessages"
-  element={<ViewerMessages />}
-/>
+            path="/viewercoursedetails/:courseId"
+            element={<ViewerCourseDetails />}
+          />
+
+          <Route
+            path="/watchlesson/:courseId"
+            element={<WatchLesson />}
+          />
+
+          <Route
+            path="/mylearning"
+            element={<MyLearning />}
+          />
+
+          <Route
+            path="/viewercommunity"
+            element={<ViewerCommunity />}
+          />
+
+          <Route
+            path="/viewermessages"
+            element={<ViewerMessages />}
+          />
+
+          <Route
+            path="/viewermessages/:userId"
+            element={<ViewerMessageChat />}
+          />
+
+          <Route
+            path="/viewerprofile"
+            element={<ViewerProfile />}
+          />
+
+          <Route
+            path="/viewerai-chat"
+            element={<ViewerAIChat />}
+          />
+
+          <Route
+            path="/viewernotification"
+            element={<ViewerNotification />}
+          />
+
+          <Route
+            path="/viewersettings"
+            element={<ViewerSettings />}
+          />
+
+          <Route
+            path="/viewerhelpsupport"
+            element={<ViewerHelpSupport />}
+          />
+
+          <Route
+            path="/savedprojects"
+            element={<SavedProjects />}
+          />
+
         </Route>
 
+
+        {/* =========================
+            INVALID URL
+        ========================= */}
         <Route
           path="*"
           element={<Navigate to="/" replace />}

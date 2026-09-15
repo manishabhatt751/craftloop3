@@ -1,289 +1,206 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 function ViewerExplore() {
+  const navigate = useNavigate()
+
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
 
-  const creators = [
+  const items = [
     {
       id: 1,
-      name: 'Alex Morgan',
-      username: '@alexmorgan',
-      profession: 'UI UX Designer',
+      title: 'Alex Morgan',
+      type: 'Creator',
       category: 'Design',
-      skills: 'Figma, Branding, UI UX',
-      projects: 12,
-      courses: 4,
-      image: 'https://i.pravatar.cc/150?img=47',
+      description:
+        'UI/UX designer helping businesses create modern and user-friendly digital experiences.',
+      image:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
     },
     {
       id: 2,
-      name: 'Sarah Wilson',
-      username: '@sarahwilson',
-      profession: 'Graphic Designer',
-      category: 'Design',
-      skills: 'Photoshop, Illustrator, Canva',
-      projects: 18,
-      courses: 6,
-      image: 'https://i.pravatar.cc/150?img=32',
+      title: 'Modern Brand Flyer',
+      type: 'Project',
+      category: 'Graphic Design',
+      description:
+        'A creative branding and flyer design project created for a modern business.',
+      image:
+        'https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&w=900&q=80',
     },
     {
       id: 3,
-      name: 'Daniel Smith',
-      username: '@danielsmith',
-      profession: 'Web Developer',
-      category: 'Development',
-      skills: 'React, JavaScript, Node',
-      projects: 15,
-      courses: 5,
-      image: 'https://i.pravatar.cc/150?img=12',
+      title: 'Complete UI UX Design',
+      type: 'Course',
+      category: 'Design',
+      description:
+        'Learn UI/UX design from fundamentals to practical design projects.',
+      image:
+        'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=900&q=80',
     },
     {
       id: 4,
-      name: 'Emma Johnson',
-      username: '@emmajohnson',
-      profession: 'Content Creator',
-      category: 'Content',
-      skills: 'Writing, SEO, Content Strategy',
-      projects: 10,
-      courses: 3,
-      image: 'https://i.pravatar.cc/150?img=44',
+      title: 'Sarah Wilson',
+      type: 'Creator',
+      category: 'Development',
+      description:
+        'Full-stack developer creating websites and digital solutions for businesses.',
+      image:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80',
     },
     {
       id: 5,
-      name: 'Ryan Taylor',
-      username: '@ryantaylor',
-      profession: 'Business Creator',
-      category: 'Business',
-      skills: 'Marketing, Strategy, Branding',
-      projects: 9,
-      courses: 4,
-      image: 'https://i.pravatar.cc/150?img=11',
+      title: 'Creative Portfolio Website',
+      type: 'Project',
+      category: 'Development',
+      description:
+        'A responsive portfolio website designed for a creative professional.',
+      image:
+        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80',
     },
     {
       id: 6,
-      name: 'Olivia Brown',
-      username: '@oliviabrown',
-      profession: 'UX Researcher',
-      category: 'UX',
-      skills: 'Research, Prototyping, Figma',
-      projects: 14,
-      courses: 7,
-      image: 'https://i.pravatar.cc/150?img=49',
+      title: 'Digital Marketing Basics',
+      type: 'Course',
+      category: 'Marketing',
+      description:
+        'Understand digital marketing, SEO, social media and online promotion.',
+      image:
+        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=900&q=80',
     },
   ]
 
-  const categories = [
-    'All',
-    'Design',
-    'UX',
-    'Development',
-    'Content',
-    'Business',
-  ]
+  const filteredItems = items.filter((item) => {
+    const matchesSearch =
+      item.title.toLowerCase().includes(search.toLowerCase()) ||
+      item.description.toLowerCase().includes(search.toLowerCase()) ||
+      item.category.toLowerCase().includes(search.toLowerCase())
 
-  const filteredCreators = useMemo(() => {
-    return creators.filter((creator) => {
-      const matchesCategory =
-        category === 'All' || creator.category === category
+    const matchesCategory =
+      category === 'All' || item.category === category
 
-      const searchText = search.toLowerCase()
+    return matchesSearch && matchesCategory
+  })
 
-      const matchesSearch =
-        creator.name.toLowerCase().includes(searchText) ||
-        creator.username.toLowerCase().includes(searchText) ||
-        creator.profession.toLowerCase().includes(searchText) ||
-        creator.skills.toLowerCase().includes(searchText)
-
-      return matchesCategory && matchesSearch
-    })
-  }, [search, category])
+  const handleViewDetails = (item) => {
+  if (item.type === 'Course') {
+    navigate(`/viewercoursedetails/${item.id}`)
+  }
+}
 
   return (
     <div className="space-y-8">
-
-      <section>
-        <p className="text-sm font-semibold text-purple-600">
-          EXPLORE
-        </p>
-
-        <h1 className="mt-1 text-3xl font-bold text-gray-900">
-          Discover Creators
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Explore
         </h1>
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-          Find talented creators, explore their skills and discover projects
-          and courses that match your interests.
+        <p className="mt-1 text-sm text-gray-500">
+          Discover creators, projects and courses on CraftLoop.
         </p>
-      </section>
+      </div>
 
-      <section className="rounded-2xl border border-purple-100 bg-white p-5">
-
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-            Search
-          </span>
-
+      {/* Search and Filter */}
+      <div className="flex flex-col gap-4 rounded-3xl border border-purple-100 bg-white p-5 shadow-sm md:flex-row">
+        <div className="flex-1">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search creators, skills or professions"
-            className="w-full rounded-xl border border-purple-100 bg-[#faf9ff] py-3 pl-20 pr-4 text-sm text-gray-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+            placeholder="Search creators, projects or courses..."
+            className="w-full rounded-xl border border-purple-100 bg-[#faf9ff] px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
           />
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-
-          {categories.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setCategory(item)}
-              className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                category === item
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-100'
-                  : 'bg-purple-50 text-gray-600 hover:bg-purple-100 hover:text-purple-700'
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-
+        <div className="md:w-56">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full rounded-xl border border-purple-100 bg-[#faf9ff] px-4 py-3 text-sm text-gray-700 outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+          >
+            <option value="All">All Categories</option>
+            <option value="Design">Design</option>
+            <option value="Graphic Design">Graphic Design</option>
+            <option value="Development">Development</option>
+            <option value="Marketing">Marketing</option>
+          </select>
         </div>
-      </section>
+      </div>
 
-      <section>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-purple-600">
-              CREATORS
-            </p>
-
-            <h2 className="mt-1 text-2xl font-bold text-gray-900">
-              Recommended Creators
-            </h2>
-          </div>
-
-          <p className="text-sm text-gray-500">
-            {filteredCreators.length} creators
-          </p>
-        </div>
-
-        {filteredCreators.length === 0 ? (
-          <div className="mt-5 rounded-2xl border border-purple-100 bg-white p-10 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
-              Search
-            </div>
-
-            <h3 className="mt-4 text-lg font-bold text-gray-900">
-              No creators found
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Try another search or choose a different category.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('')
-                setCategory('All')
-              }}
-              className="mt-5 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-700"
+      {/* Results */}
+      {filteredItems.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {filteredItems.map((item) => (
+            <div
+              key={item.id}
+              className="overflow-hidden rounded-3xl border border-purple-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
             >
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {/* Image */}
+              <div className="h-48 overflow-hidden bg-purple-100">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                />
+              </div>
 
-            {filteredCreators.map((creator) => (
-              <div
-                key={creator.id}
-                className="rounded-2xl border border-purple-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
-              >
-
-                <div className="flex items-start justify-between">
-
-                  <div className="flex items-center gap-4">
-
-                    <img
-                      src={creator.image}
-                      alt={creator.name}
-                      className="h-14 w-14 rounded-full object-cover ring-2 ring-purple-100"
-                    />
-
-                    <div>
-                      <h3 className="font-bold text-gray-900">
-                        {creator.name}
-                      </h3>
-
-                      <p className="text-xs text-gray-400">
-                        {creator.username}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <span className="rounded-lg bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
-                    {creator.category}
+              {/* Content */}
+              <div className="p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="rounded-lg bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                    {item.type}
                   </span>
 
+                  <span className="text-xs font-medium text-gray-400">
+                    {item.category}
+                  </span>
                 </div>
 
-                <div className="mt-5">
+                <h2 className="mt-4 text-lg font-bold text-gray-900">
+                  {item.title}
+                </h2>
 
-                  <p className="text-sm font-semibold text-gray-800">
-                    {creator.profession}
-                  </p>
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  {item.description}
+                </p>
 
-                  <p className="mt-2 text-sm leading-6 text-gray-500">
-                    {creator.skills}
-                  </p>
-
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
-
-                  <div className="rounded-xl bg-[#faf9ff] p-3">
-                    <p className="text-xs text-gray-400">
-                      Projects
-                    </p>
-
-                    <p className="mt-1 text-lg font-bold text-purple-700">
-                      {creator.projects}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-[#faf9ff] p-3">
-                    <p className="text-xs text-gray-400">
-                      Courses
-                    </p>
-
-                    <p className="mt-1 text-lg font-bold text-purple-700">
-                      {creator.courses}
-                    </p>
-                  </div>
-
-                </div>
-
-                <button
-                  type="button"
-                  className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
-                >
-                  View Profile
-                </button>
-
+                {item.type === 'Course' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleViewDetails(item)}
+                    className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+                  >
+                    View Details
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mt-5 w-full rounded-xl border border-purple-200 px-4 py-3 text-sm font-semibold text-purple-600 transition hover:bg-purple-50"
+                  >
+                    View Details
+                  </button>
+                )}
               </div>
-            ))}
-
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* No Results */
+        <div className="rounded-3xl border border-purple-100 bg-white px-6 py-16 text-center shadow-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-2xl text-purple-600">
+            🔍
           </div>
-        )}
 
-      </section>
+          <h2 className="mt-5 text-xl font-bold text-gray-900">
+            No results found
+          </h2>
 
+          <p className="mt-2 text-sm text-gray-500">
+            Try searching for another creator, project or course.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

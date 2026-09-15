@@ -123,6 +123,7 @@ function ViewerCourses() {
   return (
     <div className="space-y-8">
 
+      {/* Header */}
       <section>
         <p className="text-sm font-semibold text-purple-600">
           COURSES
@@ -138,7 +139,9 @@ function ViewerCourses() {
         </p>
       </section>
 
-      <section className="rounded-2xl border border-purple-100 bg-white p-5">
+
+      {/* Search and Categories */}
+      <section className="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
 
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -173,6 +176,8 @@ function ViewerCourses() {
 
       </section>
 
+
+      {/* Course Section */}
       <section>
 
         <div className="flex items-center justify-between">
@@ -193,8 +198,11 @@ function ViewerCourses() {
 
         </div>
 
+
+        {/* No Results */}
         {filteredCourses.length === 0 ? (
-          <div className="mt-5 rounded-2xl border border-purple-100 bg-white p-10 text-center">
+
+          <div className="mt-5 rounded-2xl border border-purple-100 bg-white p-10 text-center shadow-sm">
 
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-sm font-bold text-purple-600">
               Search
@@ -214,27 +222,32 @@ function ViewerCourses() {
                 setSearch('')
                 setCategory('All')
               }}
-              className="mt-5 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-700"
+              className="mt-5 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-purple-700"
             >
               Clear Filters
             </button>
 
           </div>
+
         ) : (
+
+          /* Course Cards */
           <div className="mt-5 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 
             {filteredCourses.map((course) => (
+
               <div
                 key={course.id}
                 className="overflow-hidden rounded-2xl border border-purple-100 bg-white transition hover:-translate-y-1 hover:shadow-lg"
               >
 
+                {/* Course Image */}
                 <div className="relative h-44 overflow-hidden bg-purple-100">
 
                   <img
                     src={course.image}
                     alt={course.title}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition duration-300 hover:scale-105"
                   />
 
                   <span className="absolute left-4 top-4 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-purple-700 shadow-sm">
@@ -243,6 +256,8 @@ function ViewerCourses() {
 
                 </div>
 
+
+                {/* Course Information */}
                 <div className="p-6">
 
                   <div className="flex items-center justify-between gap-3">
@@ -257,18 +272,23 @@ function ViewerCourses() {
 
                   </div>
 
+
                   <h3 className="mt-4 text-lg font-bold text-gray-900">
                     {course.title}
                   </h3>
+
 
                   <p className="mt-2 text-xs font-semibold text-purple-600">
                     By {course.creator}
                   </p>
 
+
                   <p className="mt-3 text-sm leading-6 text-gray-500">
                     {course.description}
                   </p>
 
+
+                  {/* Course Details */}
                   <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-4">
 
                     <span className="text-xs text-gray-500">
@@ -281,9 +301,11 @@ function ViewerCourses() {
 
                   </div>
 
+
+                  {/* View Course */}
                   <button
                     type="button"
-                    onClick={() => navigate('/viewercoursedetails')}
+                    onClick={() => navigate(`/viewercoursedetails/${course.id}`)}
                     className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
                   >
                     View Course
@@ -292,9 +314,11 @@ function ViewerCourses() {
                 </div>
 
               </div>
+
             ))}
 
           </div>
+
         )}
 
       </section>

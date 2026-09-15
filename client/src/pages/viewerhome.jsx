@@ -4,6 +4,7 @@ function ViewerHome() {
   return (
     <div className="space-y-8">
 
+      {/* Welcome Section */}
       <section className="rounded-3xl bg-purple-600 p-8 text-white shadow-lg">
 
         <p className="text-sm font-semibold text-purple-200">
@@ -19,7 +20,7 @@ function ViewerHome() {
           skills through courses and tutorials.
         </p>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
 
           <Link
             to="/viewerexplore"
@@ -40,9 +41,10 @@ function ViewerHome() {
       </section>
 
 
+      {/* Platform Stats */}
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
-        <div className="rounded-2xl border border-purple-100 bg-white p-6">
+        <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
           <p className="text-sm text-gray-500">
             Creators
           </p>
@@ -52,7 +54,7 @@ function ViewerHome() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-purple-100 bg-white p-6">
+        <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
           <p className="text-sm text-gray-500">
             Projects
           </p>
@@ -62,7 +64,7 @@ function ViewerHome() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-purple-100 bg-white p-6">
+        <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
           <p className="text-sm text-gray-500">
             Courses
           </p>
@@ -72,7 +74,7 @@ function ViewerHome() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-purple-100 bg-white p-6">
+        <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
           <p className="text-sm text-gray-500">
             Skills
           </p>
@@ -85,6 +87,7 @@ function ViewerHome() {
       </section>
 
 
+      {/* Recommended */}
       <section>
 
         <div className="flex items-center justify-between">
@@ -111,6 +114,7 @@ function ViewerHome() {
 
         <div className="mt-5 grid gap-5 md:grid-cols-3">
 
+          {/* Graphic Design */}
           <div className="rounded-2xl border border-purple-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg">
 
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
@@ -128,14 +132,15 @@ function ViewerHome() {
 
             <Link
               to="/viewerexplore"
-              className="mt-5 inline-block text-sm font-bold text-purple-600"
+              className="mt-5 inline-block text-sm font-bold text-purple-600 hover:text-purple-800"
             >
-              Explore
+              Explore →
             </Link>
 
           </div>
 
 
+          {/* Web Development */}
           <div className="rounded-2xl border border-purple-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg">
 
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
@@ -152,14 +157,15 @@ function ViewerHome() {
 
             <Link
               to="/viewerexplore"
-              className="mt-5 inline-block text-sm font-bold text-purple-600"
+              className="mt-5 inline-block text-sm font-bold text-purple-600 hover:text-purple-800"
             >
-              Explore
+              Explore →
             </Link>
 
           </div>
 
 
+          {/* Creative Courses */}
           <div className="rounded-2xl border border-purple-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg">
 
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-xl">
@@ -177,9 +183,9 @@ function ViewerHome() {
 
             <Link
               to="/viewercourse"
-              className="mt-5 inline-block text-sm font-bold text-purple-600"
+              className="mt-5 inline-block text-sm font-bold text-purple-600 hover:text-purple-800"
             >
-              Browse
+              Browse →
             </Link>
 
           </div>
@@ -189,9 +195,10 @@ function ViewerHome() {
       </section>
 
 
-      <section className="rounded-2xl border border-purple-100 bg-white p-6">
+      {/* Continue Learning */}
+      <section className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
 
           <div>
             <p className="text-sm font-semibold text-purple-600">
@@ -205,12 +212,13 @@ function ViewerHome() {
 
           <Link
             to="/mylearning"
-            className="text-sm font-bold text-purple-600"
+            className="text-sm font-bold text-purple-600 hover:text-purple-800"
           >
-            My Learning
+            My Learning →
           </Link>
 
         </div>
+
 
         <div className="mt-5 rounded-xl bg-[#faf9ff] p-5">
 
@@ -224,7 +232,7 @@ function ViewerHome() {
 
           <Link
             to="/viewercourse"
-            className="mt-4 inline-block rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-700"
+            className="mt-4 inline-block rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-purple-700"
           >
             Find Courses
           </Link>

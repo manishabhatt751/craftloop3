@@ -32,8 +32,7 @@ function Login() {
     if (role === 'creator') {
       navigate('/dashboard')
     } else {
-      // Viewer side will be built later.
-      navigate('/login?role=viewer')
+      navigate('/viewerhome')
     }
   }
 
