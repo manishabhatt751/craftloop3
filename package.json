@@ -3,12 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "description": "CraftLoop - Connect skills, discover talent, create opportunities",
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev": "npm run dev --prefix client",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
     "build": "npm run build --prefix client",
-    "start": "npm start --prefix server"
+    "start": "npm start --prefix server",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "keywords": [],
   "author": "",
