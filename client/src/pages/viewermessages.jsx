@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
+import { getSocket } from '../services/socket'
 
 function ViewerMessages() {
   const navigate = useNavigate()
 
-  const conversations = [
+  const defaultConversations = [
     {
       id: 1,
       name: 'Alex Morgan',
@@ -35,6 +38,75 @@ function ViewerMessages() {
       online: true,
     },
   ]
+
+  const [conversations, setConversations] = useState(defaultConversations)
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const res = await api.getConversations()
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const loaded = res.data.map((c) => ({
+            id: c.partner._id,
+            name: c.partner.name,
+            username: `@${c.partner.email ? c.partner.email.split('@')[0] : 'user'}`,
+            skill: c.partner.title || (c.partner.role === 'creator' ? 'Creator' : 'Viewer'),
+            message: c.lastMessage,
+            time: new Date(c.lastMessageTime).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            image: c.partner.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.partner.name)}&background=7c3aed&color=fff`,
+            online: true,
+          }))
+          setConversations(loaded)
+        }
+      } catch (err) {
+        console.error('Failed to load viewer conversations:', err)
+      }
+    }
+
+    fetchConversations()
+  }, [])
+
+  // Socket.io real-time listener for updating conversation list
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket) return
+
+    const handleNewMessage = (newMsg) => {
+      if (!newMsg) return
+
+      const partnerObj = newMsg.sender
+      const partnerId = (partnerObj?._id || partnerObj)?.toString()
+
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id?.toString() === partnerId)
+        const updatedTime = new Date(newMsg.createdAt).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+
+        if (index >= 0) {
+          const updated = [...prev]
+          updated[index] = {
+            ...updated[index],
+            message: newMsg.content,
+            time: updatedTime,
+          }
+          return updated
+        }
+
+        return prev
+      })
+    }
+
+    socket.on('new_message', handleNewMessage)
+
+    return () => {
+      socket.off('new_message', handleNewMessage)
+    }
+  }, [])
 
   return (
     <div className="space-y-8">

@@ -23,7 +23,8 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || "craftloop_jwt_secret_key_2026";
+    const decoded = jwt.verify(token, secret);
 
     const user = await User.findById(decoded.id).select("-password");
 
@@ -60,4 +61,35 @@ const restrictTo = (...roles) => {
   };
 };
 
-module.exports = { protect, restrictTo };
+/**
+ * Optional Auth — attaches req.user if valid token provided, but doesn't reject if none
+ */
+const optionalAuth = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const secret = process.env.JWT_SECRET || "craftloop_jwt_secret_key_2026";
+    const decoded = jwt.verify(token, secret);
+    const user = await User.findById(decoded.id).select("-password");
+    if (user) {
+      req.user = user;
+    }
+  } catch (err) {
+    // Ignore invalid token on optional auth
+  }
+
+  next();
+};
+
+module.exports = { protect, restrictTo, optionalAuth };

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import api from '../services/api'
+import { getSocket } from '../services/socket'
 
 const defaultConversations = [
   {
@@ -86,25 +88,181 @@ function Messages() {
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
   const [message, setMessage] = useState('')
+  const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
-    const savedMessages = JSON.parse(
-      localStorage.getItem('craftloopMessages') || 'null'
-    )
+    const loadConversations = async () => {
+      try {
+        const meRes = await api.getMe().catch(() => null)
+        if (meRes && meRes.user) {
+          setCurrentUser(meRes.user)
+        }
 
-    if (Array.isArray(savedMessages) && savedMessages.length > 0) {
-      setConversations(savedMessages)
-      setSelectedId(savedMessages[0].id)
-    } else {
-      setConversations(defaultConversations)
-      setSelectedId(defaultConversations[0].id)
+        const res = await api.getConversations().catch(() => null)
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const loaded = res.data.map((conv) => ({
+            id: conv.partner._id,
+            name: conv.partner.name,
+            username: conv.partner.email ? conv.partner.email.split('@')[0] : 'user',
+            role: conv.partner.title || (conv.partner.role === 'creator' ? 'Creator' : 'Viewer'),
+            avatar: conv.partner.name
+              ? conv.partner.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+              : 'U',
+            lastMessage: conv.lastMessage,
+            time: new Date(conv.lastMessageTime).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            unread: conv.unreadCount || 0,
+            messages: [],
+          }))
+          setConversations(loaded)
+          setSelectedId(loaded[0].id)
+          loadMessages(loaded[0].id, meRes?.user?._id)
+          return
+        }
+      } catch (err) {
+        console.error('Failed to load conversations from backend:', err)
+      }
 
-      localStorage.setItem(
-        'craftloopMessages',
-        JSON.stringify(defaultConversations)
+      // Local/default fallback
+      const savedMessages = JSON.parse(
+        localStorage.getItem('craftloopMessages') || 'null'
       )
+
+      if (Array.isArray(savedMessages) && savedMessages.length > 0) {
+        setConversations(savedMessages)
+        setSelectedId(savedMessages[0].id)
+      } else {
+        setConversations(defaultConversations)
+        setSelectedId(defaultConversations[0].id)
+        localStorage.setItem(
+          'craftloopMessages',
+          JSON.stringify(defaultConversations)
+        )
+      }
     }
+
+    loadConversations()
   }, [])
+
+  // Socket.io real-time message listener
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket) return
+
+    const handleNewMessage = (newMsg) => {
+      if (!newMsg) return
+
+      const myId = currentUser?._id
+      const senderId = (newMsg.sender?._id || newMsg.sender)?.toString()
+      const isMe = myId && senderId === myId.toString()
+      const partnerId = isMe
+        ? (newMsg.recipient?._id || newMsg.recipient || newMsg.receiver?._id || newMsg.receiver)?.toString()
+        : senderId
+
+      if (!partnerId) return
+
+      const formatted = {
+        id: newMsg._id,
+        sender: isMe ? 'me' : 'them',
+        text: newMsg.content,
+        time: new Date(newMsg.createdAt).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }
+
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.id?.toString() === partnerId)
+
+        if (exists) {
+          return prev.map((c) => {
+            if (c.id?.toString() === partnerId) {
+              const alreadyHas = c.messages?.some((m) => m.id === newMsg._id)
+              const isSelected = selectedId?.toString() === partnerId
+              return {
+                ...c,
+                lastMessage: newMsg.content,
+                time: 'Just now',
+                unread: isSelected ? 0 : (isMe ? c.unread : (c.unread || 0) + 1),
+                messages: alreadyHas ? c.messages : [...(c.messages || []), formatted],
+              }
+            }
+            return c
+          })
+        } else {
+          // New conversation partner
+          const partnerObj = isMe ? (newMsg.recipient || newMsg.receiver) : newMsg.sender
+          const name = partnerObj?.name || 'User'
+          return [
+            {
+              id: partnerId,
+              name,
+              username: partnerObj?.email ? partnerObj.email.split('@')[0] : 'user',
+              role: partnerObj?.title || 'User',
+              avatar: name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+              lastMessage: newMsg.content,
+              time: 'Just now',
+              unread: selectedId?.toString() === partnerId ? 0 : 1,
+              messages: [formatted],
+            },
+            ...prev,
+          ]
+        }
+      })
+
+      if (selectedId?.toString() === partnerId && !isMe) {
+        api.markConversationAsRead(partnerId).catch(() => null)
+      }
+    }
+
+    socket.on('new_message', handleNewMessage)
+
+    return () => {
+      socket.off('new_message', handleNewMessage)
+    }
+  }, [currentUser, selectedId])
+
+  const loadMessages = async (partnerId, myId) => {
+    if (!partnerId || typeof partnerId === 'number') return
+
+    try {
+      const res = await api.getConversation(partnerId)
+      if (res && res.success && Array.isArray(res.data)) {
+        const currentUserId = myId || currentUser?._id
+        const mapped = res.data.map((m) => {
+          const isMe = m.sender && (m.sender._id === currentUserId || m.sender === currentUserId)
+          return {
+            id: m._id,
+            sender: isMe ? 'me' : 'them',
+            text: m.content,
+            time: new Date(m.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }
+        })
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === partnerId
+              ? {
+                  ...c,
+                  messages: mapped,
+                  unread: 0,
+                }
+              : c
+          )
+        )
+
+        // Mark as read in backend
+        api.markConversationAsRead(partnerId).catch(() => null)
+      }
+    } catch (err) {
+      console.error('Failed to load conversation messages:', err)
+    }
+  }
 
   const selectedConversation = conversations.find(
     (conversation) => conversation.id === selectedId
@@ -134,6 +292,7 @@ function Messages() {
 
   const selectConversation = (id) => {
     setSelectedId(id)
+    loadMessages(id)
 
     const updatedConversations = conversations.map((conversation) =>
       conversation.id === id
@@ -147,15 +306,54 @@ function Messages() {
     saveConversations(updatedConversations)
   }
 
-  const sendMessage = (e) => {
+  const sendMessage = async (e) => {
     e.preventDefault()
 
     if (!message.trim() || !selectedConversation) return
 
+    const trimmedText = message.trim()
+    const partnerId = selectedConversation.id
+
+    // If partnerId is a backend MongoDB id, send to backend
+    if (typeof partnerId === 'string' && partnerId.length === 24) {
+      try {
+        const res = await api.sendMessage(partnerId, trimmedText)
+        if (res && res.success) {
+          const sent = {
+            id: res.data._id,
+            sender: 'me',
+            text: res.data.content,
+            time: new Date(res.data.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }
+
+          const updatedConversations = conversations.map((conversation) =>
+            conversation.id === selectedConversation.id
+              ? {
+                  ...conversation,
+                  lastMessage: sent.text,
+                  time: 'Just now',
+                  messages: [...(conversation.messages || []), sent],
+                }
+              : conversation
+          )
+
+          saveConversations(updatedConversations)
+          setMessage('')
+          return
+        }
+      } catch (err) {
+        console.error('Failed to send message to backend:', err)
+      }
+    }
+
+    // Local / fallback mode
     const newMessage = {
       id: Date.now(),
       sender: 'me',
-      text: message.trim(),
+      text: trimmedText,
       time: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -168,7 +366,7 @@ function Messages() {
             ...conversation,
             lastMessage: newMessage.text,
             time: 'Just now',
-            messages: [...conversation.messages, newMessage],
+            messages: [...(conversation.messages || []), newMessage],
           }
         : conversation
     )

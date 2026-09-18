@@ -18,7 +18,7 @@ export async function apiRequest(endpoint, options = {}) {
     'Content-Type': 'application/json',
   };
 
-  const token = localStorage.getItem('craftloop_token');
+  const token = localStorage.getItem('craftloopToken') || localStorage.getItem('craftloop_token');
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -58,6 +58,44 @@ export const api = {
   put: (endpoint, body, options) => apiRequest(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
   delete: (endpoint, options) => apiRequest(endpoint, { ...options, method: 'DELETE' }),
   health: () => apiRequest('/health'),
+
+  // Authentication
+  login: (email, password) => api.post('/auth/login', { email, password }),
+  register: (data) => api.post('/auth/register', data),
+  getMe: () => api.get('/auth/me'),
+
+  // Messages (Phase 6)
+  sendMessage: (receiverId, content) => api.post('/messages', { receiverId, content }),
+  getConversations: () => api.get('/messages/conversations'),
+  getConversation: (userId) => api.get(`/messages/conversation/${userId}`),
+  markConversationAsRead: (userId) => api.put(`/messages/conversation/${userId}/read`, {}),
+  deleteMessage: (messageId) => api.delete(`/messages/${messageId}`),
+
+  // Courses
+  getCourses: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/courses${query ? `?${query}` : ''}`);
+  },
+  getCourseById: (id) => api.get(`/courses/${id}`),
+  createCourse: (data) => api.post('/courses', data),
+  updateCourse: (id, data) => api.put(`/courses/${id}`, data),
+  deleteCourse: (id) => api.delete(`/courses/${id}`),
+
+  // Projects
+  getProjects: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/projects${query ? `?${query}` : ''}`);
+  },
+  getProjectById: (id) => api.get(`/projects/${id}`),
+  createProject: (data) => api.post('/projects', data),
+  updateProject: (id, data) => api.put(`/projects/${id}`, data),
+  deleteProject: (id) => api.delete(`/projects/${id}`),
+
+  // Enrollments (Phase 5)
+  enrollInCourse: (courseId) => api.post(`/enrollments/${courseId}`, {}),
+  getMyLearning: () => api.get('/enrollments/me'),
+  getMyEnrollment: (courseId) => api.get(`/enrollments/${courseId}`),
+  updateLessonProgress: (courseId, data) => api.put(`/enrollments/${courseId}/progress`, data),
 };
 
 export default api;
