@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Message, User } = require("../models");
+const { createNotification } = require("./notificationController");
 
 /**
  * @route   POST /api/messages
@@ -71,6 +72,17 @@ const sendMessage = async (req, res) => {
     } catch (socketErr) {
       console.warn("Socket.io emit warning:", socketErr.message);
     }
+
+    // Trigger in-app notification to message recipient
+    createNotification({
+      recipient: receiver._id,
+      sender: req.user._id,
+      type: "message",
+      title: "New message received",
+      message: `${req.user.name || "A user"} sent you a message: "${content.slice(0, 45)}${content.length > 45 ? "..." : ""}"`,
+      relatedId: message._id,
+      relatedType: "Message",
+    });
 
     res.status(201).json({
       success: true,

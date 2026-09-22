@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import api from '../services/api'
 
 function ViewerCourseDetails() {
   const navigate = useNavigate()
@@ -127,14 +129,76 @@ function ViewerCourseDetails() {
     },
   ]
 
-  const course = courses.find(
-    (item) => item.id === courseId
-  )
+  const [course, setCourse] = useState(() => {
+    return courses.find((item) => String(item.id) === String(courseId)) || null
+  })
+  const [isLoading, setIsLoading] = useState(!course)
+
+  useEffect(() => {
+    const staticCourse = courses.find((item) => String(item.id) === String(courseId))
+    if (staticCourse) {
+      setCourse(staticCourse)
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    api
+      .getCourseById(courseId)
+      .then((res) => {
+        if (res && res.data) {
+          const dbCourse = res.data
+          const instructorName = dbCourse.instructor?.name || dbCourse.creator?.name || 'CraftLoop Creator'
+          setCourse({
+            id: dbCourse._id,
+            title: dbCourse.title,
+            category: dbCourse.category || 'General',
+            level: dbCourse.level || 'Beginner',
+            creator: instructorName,
+            lessons: Array.isArray(dbCourse.lessons) ? dbCourse.lessons.length : 0,
+            duration: 'Flexible',
+            students: Array.isArray(dbCourse.enrolledStudents) ? dbCourse.enrolledStudents.length : 0,
+            image:
+              dbCourse.thumbnail ||
+              'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=1200&q=80',
+            description:
+              dbCourse.description ||
+              'Comprehensive practical course on CraftLoop.',
+            learn: [
+              `Master fundamental concepts in ${dbCourse.category || 'this subject'}`,
+              'Build practical skills with step-by-step guidance',
+              'Learn industry workflows and recommended tools',
+              'Create portfolio-ready project outcomes',
+            ],
+          })
+        } else {
+          setCourse(null)
+        }
+      })
+      .catch(() => {
+        setCourse(null)
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }, [courseId])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-3xl border border-purple-100 bg-white p-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600" />
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:150ms]" />
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:300ms]" />
+          <span className="ml-2 text-sm font-semibold text-purple-700">Loading course details...</span>
+        </div>
+      </div>
+    )
+  }
 
   if (!course) {
     return (
       <div className="rounded-3xl border border-purple-100 bg-white p-10 text-center shadow-sm">
-
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-xl font-bold text-purple-600">
           !
         </div>
@@ -144,7 +208,7 @@ function ViewerCourseDetails() {
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          The course you are looking for does not exist.
+          The course you are looking for does not exist or has been removed.
         </p>
 
         <button
@@ -154,7 +218,6 @@ function ViewerCourseDetails() {
         >
           Back to Courses
         </button>
-
       </div>
     )
   }
@@ -284,35 +347,20 @@ function ViewerCourseDetails() {
 
           {/* Start Course */}
           <button
-  type="button"
-  onClick={() => {
-    const existingCourses =
-      JSON.parse(localStorage.getItem('craftloop_learning')) || []
+            type="button"
+            onClick={async () => {
+              const isMongoId = course.id && /^[0-9a-fA-F]{24}$/.test(String(course.id))
+              if (api.isAuthenticated() && isMongoId) {
+                try {
+                  await api.enrollInCourse(course.id)
+                } catch (err) {
+                  // If already enrolled or status message, proceed smoothly
+                  console.log('Enrollment note:', err.message || err)
+                }
+              }
 
-    const alreadyAdded = existingCourses.some(
-      (item) => item.id === course.id
-    )
-
-    if (!alreadyAdded) {
-      localStorage.setItem(
-        'craftloop_learning',
-        JSON.stringify([
-          ...existingCourses,
-          {
-            id: course.id,
-            title: course.title,
-            creator: course.creator,
-            lessons: course.lessons,
-            duration: course.duration,
-            image: course.image,
-            progress: 0,
-          },
-        ])
-      )
-    }
-
-    navigate(`/watchlesson/${course.id}`)
-  }}
+              navigate(`/watchlesson/${course.id}`)
+            }}
             className="mt-8 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
           >
             Start Course

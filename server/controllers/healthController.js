@@ -20,6 +20,9 @@ const getHealthStatus = async (req, res) => {
     app: "CraftLoop Backend API",
     version: "1.0.0",
     database: `mongodb (${dbState})`,
+    host: mongoose.connection.host,
+    port: mongoose.connection.port,
+    db: mongoose.connection.name,
     timestamp: new Date().toISOString()
   });
 };

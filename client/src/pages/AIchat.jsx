@@ -1,18 +1,50 @@
 import { useEffect, useRef, useState } from 'react'
+import api from '../services/api'
+import AIRecommendationView from '../Components/AIRecommendationView'
 
 const starterMessages = [
   {
     id: 1,
     sender: 'ai',
-    text: 'Hi! I’m CraftLoop AI. I can help you with ideas, projects, courses, branding, content and creator growth. What would you like to work on?',
+    text: 'Hi! I’m CraftLoop AI. Tell me your creative or learning goal (e.g. "I want to learn video editing", "Find a graphic designer for a flyer", or "Learn React") and I will recommend real creators, courses, and skills from CraftLoop.',
     time: 'Now',
   },
 ]
+
+const formatAIChatError = (err) => {
+  if (!err) return 'Something went wrong. Please try again.'
+  const status = err.status || (err.response && err.response.status)
+
+  if (status === 401) {
+    return 'Please log in to CraftLoop to use AI.'
+  }
+  if (status === 400) {
+    return err.data?.message || err.message || 'Invalid request format. Please provide a valid message.'
+  }
+  if (status === 502 || status === 503) {
+    return 'CraftLoop AI service is temporarily unavailable. Please try again shortly.'
+  }
+  if (status >= 500) {
+    return 'Something went wrong on the server. Please try again.'
+  }
+  if (
+    err.name === 'TypeError' ||
+    (err.message &&
+      (err.message.includes('fetch') ||
+        err.message.includes('Network') ||
+        err.message.includes('Failed to fetch')))
+  ) {
+    return 'Unable to connect to CraftLoop server.'
+  }
+  return err.message || 'Unable to connect to CraftLoop AI assistant. Please try again.'
+}
 
 function AIChat() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [lastUserMessage, setLastUserMessage] = useState('')
 
   const messagesEndRef = useRef(null)
 
@@ -25,11 +57,7 @@ function AIChat() {
       setMessages(savedChat)
     } else {
       setMessages(starterMessages)
-
-      localStorage.setItem(
-        'craftloopAIChat',
-        JSON.stringify(starterMessages)
-      )
+      localStorage.setItem('craftloopAIChat', JSON.stringify(starterMessages))
     }
   }, [])
 
@@ -41,86 +69,15 @@ function AIChat() {
 
   const saveMessages = (updatedMessages) => {
     setMessages(updatedMessages)
-
-    localStorage.setItem(
-      'craftloopAIChat',
-      JSON.stringify(updatedMessages)
-    )
+    localStorage.setItem('craftloopAIChat', JSON.stringify(updatedMessages))
   }
 
-  const generateReply = (question) => {
-    const text = question.toLowerCase()
-
-    if (
-      text.includes('project') ||
-      text.includes('service')
-    ) {
-      return 'For a strong project or service, start with a clear title, choose the right category, explain the problem you solve, mention your skills and show your best work. Keep the description simple and focused on the value you provide.'
-    }
-
-    if (
-      text.includes('course') ||
-      text.includes('tutorial') ||
-      text.includes('lesson')
-    ) {
-      return 'A good course should have a clear learning goal. Break it into small lessons, explain one concept at a time and use practical examples. You can also add a short project at the end so learners can apply what they learned.'
-    }
-
-    if (
-      text.includes('profile') ||
-      text.includes('bio')
-    ) {
-      return 'Make your creator profile clear and professional. Use a short bio that explains what you do, highlight your strongest skills and showcase projects that represent your best work.'
-    }
-
-    if (
-      text.includes('design') ||
-      text.includes('ui') ||
-      text.includes('ux')
-    ) {
-      return 'For design work, focus on hierarchy, spacing, typography, consistency and usability. Before adding more elements, make sure the main action or message is immediately clear to the user.'
-    }
-
-    if (
-      text.includes('marketing') ||
-      text.includes('business') ||
-      text.includes('client')
-    ) {
-      return 'A strong creator business starts with a clear niche and a clear offer. Show potential clients what you can do, who you can help and what result they can expect.'
-    }
-
-    if (
-      text.includes('content') ||
-      text.includes('social') ||
-      text.includes('instagram')
-    ) {
-      return 'For creator content, try a simple structure: hook, useful information and a clear ending. Consistency is important, but quality and relevance should come first.'
-    }
-
-    if (
-      text.includes('idea') ||
-      text.includes('creative')
-    ) {
-      return 'Try combining two things you already know. For example, take one skill you have and apply it to a different audience or problem. That often creates interesting project ideas.'
-    }
-
-    if (
-      text.includes('hello') ||
-      text.includes('hi') ||
-      text.includes('hey')
-    ) {
-      return 'Hey! Great to have you here. Tell me what you’re creating and I’ll help you plan the next step.'
-    }
-
-    return 'That’s a great question. Start by defining your goal, break it into smaller steps and focus on one step at a time. If you tell me more about your project, I can help you create a practical plan.'
-  }
-
-  const sendMessage = (e) => {
-    e.preventDefault()
-
-    const cleanInput = input.trim()
-
+  const handleSendPrompt = async (textToSend) => {
+    const cleanInput = (typeof textToSend === 'string' ? textToSend : input).trim()
     if (!cleanInput || isTyping) return
+
+    setErrorMessage('')
+    setLastUserMessage(cleanInput)
 
     const userMessage = {
       id: Date.now(),
@@ -133,16 +90,38 @@ function AIChat() {
     }
 
     const updatedMessages = [...messages, userMessage]
-
     saveMessages(updatedMessages)
     setInput('')
     setIsTyping(true)
 
-    setTimeout(() => {
+    // Check token authentication
+    if (!api.isAuthenticated()) {
+      const errorText = 'Please log in to CraftLoop to use AI.'
+      setErrorMessage(errorText)
+      const errorAiMessage = {
+        id: Date.now() + 1,
+        sender: 'ai',
+        isError: true,
+        text: errorText,
+        time: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }
+      saveMessages([...updatedMessages, errorAiMessage])
+      setIsTyping(false)
+      return
+    }
+
+    try {
+      // Both manual questions and suggested questions use the exact same sendAIChat API call with JWT
+      const response = await api.sendAIChat(cleanInput)
+
       const aiMessage = {
         id: Date.now() + 1,
         sender: 'ai',
-        text: generateReply(cleanInput),
+        text: response.message || 'Here are the recommendations based on your request.',
+        recommendation: response.intent ? response : null,
         time: new Date().toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
@@ -150,35 +129,54 @@ function AIChat() {
       }
 
       saveMessages([...updatedMessages, aiMessage])
+    } catch (err) {
+      console.error('AI Chat Error:', err)
+      const errorText = formatAIChatError(err)
+      setErrorMessage(errorText)
+
+      const errorAiMessage = {
+        id: Date.now() + 1,
+        sender: 'ai',
+        isError: true,
+        text: errorText,
+        time: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }
+      saveMessages([...updatedMessages, errorAiMessage])
+    } finally {
       setIsTyping(false)
-    }, 800)
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    handleSendPrompt(input)
   }
 
   const useSuggestion = (suggestion) => {
-    setInput(suggestion)
+    handleSendPrompt(suggestion)
   }
 
   const clearChat = () => {
     const confirmClear = window.confirm(
-      'Are you sure you want to clear your AI chat?'
+      'Are you sure you want to clear your AI chat history?'
     )
-
     if (!confirmClear) return
 
     localStorage.removeItem('craftloopAIChat')
     setMessages(starterMessages)
-
-    localStorage.setItem(
-      'craftloopAIChat',
-      JSON.stringify(starterMessages)
-    )
+    setErrorMessage('')
+    localStorage.setItem('craftloopAIChat', JSON.stringify(starterMessages))
   }
 
   const suggestions = [
-    'Give me a project idea',
-    'How can I improve my profile?',
-    'Help me create a course',
-    'Give me content ideas',
+    'I want to learn video editing',
+    'Which creator is best for learning graphic design?',
+    'I want to create a YouTube video but don\'t know editing',
+    'Find courses for beginner UI/UX design',
+    'I want a designer for a flyer',
   ]
 
   return (
@@ -189,92 +187,110 @@ function AIChat() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-purple-600">
             CraftLoop Assistant
           </p>
-
           <h1 className="mt-1 text-3xl font-bold text-gray-900">
-            AI Chat
+            AI Recommendation Assistant
           </h1>
-
           <p className="mt-1 text-gray-500">
-            Get ideas and guidance for your creator journey.
+            Intelligent recommendations for real CraftLoop creators, courses, projects, and skills.
           </p>
         </div>
 
         <button
           onClick={clearChat}
-          className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+          className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 shadow-xs transition hover:bg-gray-50"
         >
           Clear Chat
         </button>
       </div>
 
-      {/* Main */}
+      {/* Main Chat Window */}
       <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm">
         {/* AI Header */}
         <div className="flex items-center gap-4 border-b border-purple-100 bg-gradient-to-r from-purple-600 to-purple-800 px-6 py-5 text-white">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-inner">
             ✨
           </div>
 
           <div>
-            <h2 className="font-bold">CraftLoop AI</h2>
-            <p className="text-sm text-purple-100">
-              Creator Assistant • Always ready to help
+            <h2 className="font-bold text-base text-white">CraftLoop Smart Assistant</h2>
+            <p className="text-xs text-purple-100">
+              Real Database Recommendations • Creators • Courses • Skills
             </p>
           </div>
 
           <div className="ml-auto hidden items-center gap-2 sm:flex">
-            <span className="h-2.5 w-2.5 rounded-full bg-green-300" />
-            <span className="text-sm text-purple-100">
-              Online
+            <span className="h-2.5 w-2.5 rounded-full bg-green-300 animate-pulse" />
+            <span className="text-xs text-purple-100 font-medium">
+              Active Database Sync
             </span>
           </div>
         </div>
 
-        {/* Chat */}
-        <div className="h-[55vh] min-h-[420px] overflow-y-auto bg-[#fcfbff] p-5 sm:p-7">
-          <div className="mx-auto max-w-3xl space-y-5">
+        {/* Chat Feed */}
+        <div className="h-[60vh] min-h-[460px] overflow-y-auto bg-[#fcfbff] p-5 sm:p-7">
+          <div className="mx-auto max-w-4xl space-y-6">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${
-                  message.sender === 'user'
-                    ? 'justify-end'
-                    : 'justify-start'
+                  message.sender === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
                 <div
-                  className={`flex max-w-[85%] gap-3 ${
-                    message.sender === 'user'
-                      ? 'flex-row-reverse'
-                      : 'flex-row'
+                  className={`flex max-w-[92%] gap-3.5 ${
+                    message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
                   }`}
                 >
                   <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                       message.sender === 'user'
-                        ? 'bg-gray-200 text-gray-700'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : message.isError
+                        ? 'bg-red-100 text-red-600'
                         : 'bg-purple-100 text-purple-700'
                     }`}
                   >
-                    {message.sender === 'user' ? 'You' : 'AI'}
+                    {message.sender === 'user' ? 'You' : message.isError ? '!' : 'AI'}
                   </div>
 
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div
-                      className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                      className={`rounded-2xl px-5 py-3.5 text-sm leading-6 ${
                         message.sender === 'user'
-                          ? 'rounded-tr-md bg-purple-600 text-white'
-                          : 'rounded-tl-md bg-white text-gray-700 shadow-sm'
+                          ? 'rounded-tr-md bg-purple-600 text-white shadow-xs'
+                          : message.isError
+                          ? 'rounded-tl-md border border-red-200 bg-red-50 text-red-700'
+                          : 'rounded-tl-md border border-purple-50 bg-white text-gray-800 shadow-sm'
                       }`}
                     >
-                      {message.text}
+                      <p className="whitespace-pre-line">{message.text}</p>
+
+                      {/* Structured Recommendations Card Section */}
+                      {message.recommendation && (
+                        <AIRecommendationView
+                          recommendation={message.recommendation}
+                          onSelectPrompt={useSuggestion}
+                          isViewer={false}
+                        />
+                      )}
+
+                      {/* Inline Retry Button for Error Messages */}
+                      {message.isError && lastUserMessage && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => handleSendPrompt(lastUserMessage)}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+                          >
+                            Retry Request
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <p
                       className={`mt-1 text-[11px] text-gray-400 ${
-                        message.sender === 'user'
-                          ? 'text-right'
-                          : 'text-left'
+                        message.sender === 'user' ? 'text-right' : 'text-left'
                       }`}
                     >
                       {message.time}
@@ -285,16 +301,21 @@ function AIChat() {
             ))}
 
             {isTyping && (
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
                   AI
                 </div>
 
-                <div className="rounded-2xl rounded-tl-md bg-white px-5 py-3 shadow-sm">
-                  <div className="flex gap-1">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:150ms]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:300ms]" />
+                <div className="rounded-2xl rounded-tl-md border border-purple-50 bg-white px-5 py-3.5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-purple-500" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-purple-500 [animation-delay:150ms]" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-purple-500 [animation-delay:300ms]" />
+                    </div>
+                    <span className="text-xs text-purple-700 font-medium">
+                      Searching CraftLoop creators, courses & projects...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -304,18 +325,19 @@ function AIChat() {
           </div>
         </div>
 
-        {/* Suggestions */}
-        <div className="border-t border-gray-100 bg-white px-5 py-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        {/* Suggestions Bar */}
+        <div className="border-t border-purple-50 bg-white px-5 py-3.5">
+          <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-gray-400">
             Try asking
           </p>
 
           <div className="flex flex-wrap gap-2">
-            {suggestions.map((suggestion) => (
+            {suggestions.map((suggestion, index) => (
               <button
-                key={suggestion}
+                key={index}
                 onClick={() => useSuggestion(suggestion)}
-                className="rounded-full border border-purple-100 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100"
+                disabled={isTyping}
+                className="rounded-full border border-purple-100 bg-purple-50/70 px-3.5 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-100 hover:border-purple-200 disabled:opacity-50"
               >
                 {suggestion}
               </button>
@@ -323,35 +345,36 @@ function AIChat() {
           </div>
         </div>
 
-        {/* Input */}
+        {/* Input Bar */}
         <form
-          onSubmit={sendMessage}
-          className="border-t border-gray-100 bg-white p-4"
+          onSubmit={handleSubmit}
+          className="border-t border-purple-100 bg-white p-4"
         >
           <div className="flex gap-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask CraftLoop AI anything..."
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 outline-none transition focus:border-purple-400 focus:bg-white"
+              placeholder="Ask CraftLoop AI for creators, courses, skills, or project ideas..."
+              disabled={isTyping}
+              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-100"
             />
 
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
-              className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-xs transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 text-sm"
             >
-              Send
+              <span>Send</span>
+              <span>→</span>
             </button>
           </div>
         </form>
       </div>
 
-      {/* Disclaimer */}
-      <p className="mx-auto mt-4 max-w-5xl text-center text-xs text-gray-400">
-        CraftLoop AI is currently a frontend demonstration. Real AI/API
-        integration can be connected later.
+      {/* Grounding Notice */}
+      <p className="mx-auto mt-3.5 max-w-5xl text-center text-xs text-gray-400">
+        Recommendations are retrieved directly from verified CraftLoop MongoDB creators, published courses, and projects.
       </p>
     </div>
   )

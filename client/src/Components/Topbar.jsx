@@ -1,10 +1,49 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function TopBar() {
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (api.isAuthenticated()) {
+      api
+        .getNotifications()
+        .then((res) => {
+          if (res && res.success && Array.isArray(res.data)) {
+            setNotifications(res.data.slice(0, 5))
+            setUnreadCount(typeof res.unreadCount === 'number' ? res.unreadCount : 0)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [notificationsOpen])
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsAsRead()
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+      setUnreadCount(0)
+    } catch (_) {}
+  }
+
+  const handleSearchSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault()
+    const trimmed = (searchQuery || '').trim()
+    if (!trimmed) return
+    navigate(`/viewerexplore?search=${encodeURIComponent(trimmed)}`)
+  }
+
+  const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+  const storedProfile = JSON.parse(localStorage.getItem('craftloopCreatorProfile') || 'null')
+  const creatorName = storedProfile?.name || storedUser?.name || 'Creator'
+  const creatorUsername = storedProfile?.username || (storedUser?.email ? storedUser.email.split('@')[0] : 'creator')
+  const creatorAvatar = storedProfile?.avatar || storedUser?.avatar || 'https://i.pravatar.cc/100?img=47'
 
   return (
     <header className="fixed left-64 right-0 top-0 z-30 h-20 border-b border-purple-100 bg-white/95 px-8 backdrop-blur">
@@ -12,19 +51,32 @@ function TopBar() {
       <div className="flex h-full items-center justify-between gap-6">
 
         {/* Search */}
-        <div className="flex max-w-2xl flex-1 items-center rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3">
-
-          <span className="mr-3 text-lg text-purple-400">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex max-w-2xl flex-1 items-center rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3"
+        >
+          <button
+            type="submit"
+            aria-label="Search"
+            className="mr-3 flex items-center justify-center text-lg text-purple-400 transition hover:text-purple-600 focus:outline-none"
+          >
             🔍
-          </span>
+          </button>
 
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleSearchSubmit(e)
+              }
+            }}
             placeholder="Find a skill, creator or project..."
             className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
           />
-
-        </div>
+        </form>
 
         {/* Right Actions */}
         <div className="relative flex items-center gap-3">
@@ -41,7 +93,9 @@ function TopBar() {
           >
             🔔
 
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-purple-600" />
+            {unreadCount > 0 && (
+              <span className="absolute right-2 top-2 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-purple-600 ring-2 ring-white" />
+            )}
           </button>
 
           {/* Notification Popup */}
@@ -54,47 +108,49 @@ function TopBar() {
                   Notifications
                 </h3>
 
-                <button
-                  type="button"
-                  className="text-xs text-purple-600"
-                >
-                  Mark all read
-                </button>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    Mark all read
+                  </button>
+                )}
 
               </div>
 
               <div className="space-y-3">
 
-                <div className="rounded-xl bg-purple-50 p-3">
-                  <p className="text-sm font-medium text-gray-700">
-                    🎉 Your profile is getting attention
-                  </p>
+                {notifications.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-gray-400">No new notifications</p>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n._id || n.id}
+                      className={`rounded-xl p-3 text-left transition ${
+                        n.isRead ? 'bg-gray-50' : 'bg-purple-50'
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-gray-800">{n.title}</p>
+                      <p className="mt-1 text-xs text-gray-500 line-clamp-2">{n.message}</p>
+                    </div>
+                  ))
+                )}
 
-                  <p className="mt-1 text-xs text-gray-400">
-                    You received 12 new profile views.
-                  </p>
-                </div>
+              </div>
 
-                <div className="rounded-xl p-3 hover:bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700">
-                    💬 New message
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    Someone wants to collaborate with you.
-                  </p>
-                </div>
-
-                <div className="rounded-xl p-3 hover:bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700">
-                    ⭐ New review
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    You received a new creator review.
-                  </p>
-                </div>
-
+              <div className="mt-3 border-t border-purple-50 pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotificationsOpen(false)
+                    navigate('/notification')
+                  }}
+                  className="text-xs font-semibold text-purple-600 hover:text-purple-800"
+                >
+                  View all notifications →
+                </button>
               </div>
 
             </div>
@@ -111,7 +167,7 @@ function TopBar() {
           >
 
             <img
-              src="https://i.pravatar.cc/100?img=47"
+              src={creatorAvatar}
               alt="Profile"
               className="h-11 w-11 rounded-full border-2 border-purple-100 object-cover"
             />
@@ -119,11 +175,11 @@ function TopBar() {
             <div className="hidden text-left md:block">
 
               <p className="text-sm font-semibold text-gray-800">
-                Creator
+                {creatorName}
               </p>
 
               <p className="text-xs text-gray-400">
-                @creator
+                @{creatorUsername}
               </p>
 
             </div>
@@ -142,7 +198,7 @@ function TopBar() {
               <div className="flex items-center gap-3 border-b border-purple-100 bg-purple-50 p-4">
 
                 <img
-                  src="https://i.pravatar.cc/100?img=47"
+                  src={creatorAvatar}
                   alt="Profile"
                   className="h-12 w-12 rounded-full object-cover"
                 />
@@ -150,11 +206,11 @@ function TopBar() {
                 <div>
 
                   <p className="font-semibold text-gray-800">
-                    Creator
+                    {creatorName}
                   </p>
 
                   <p className="text-xs text-gray-400">
-                    @creator
+                    @{creatorUsername}
                   </p>
 
                 </div>
@@ -257,6 +313,7 @@ function TopBar() {
                 <button
                   type="button"
                   onClick={() => {
+                    api.logout()
                     setProfileOpen(false)
                     navigate('/login')
                   }}

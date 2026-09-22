@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function ViewerSettings() {
+  const navigate = useNavigate()
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [communityNotifications, setCommunityNotifications] = useState(true)
   const [courseNotifications, setCourseNotifications] = useState(true)
@@ -206,10 +209,11 @@ function ViewerSettings() {
 
         <button
           type="button"
-          onClick={() =>
-            alert('Logout functionality will be connected later.')
-          }
-          className="mt-5 rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+          onClick={() => {
+            api.logout()
+            navigate('/login')
+          }}
+          className="mt-5 rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 cursor-pointer"
         >
           Log Out
         </button>

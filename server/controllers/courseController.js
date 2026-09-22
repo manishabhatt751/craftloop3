@@ -27,6 +27,7 @@ const getCourses = async (req, res) => {
       filter.$or = [
         { title: { $regex: req.query.search, $options: "i" } },
         { description: { $regex: req.query.search, $options: "i" } },
+        { category: { $regex: req.query.search, $options: "i" } },
       ];
     }
 

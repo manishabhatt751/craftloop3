@@ -1,15 +1,71 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function MyLearning() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    const savedCourses =
-      JSON.parse(localStorage.getItem('craftloop_learning')) || []
+    let isMounted = true
 
-    setCourses(savedCourses)
+    if (api.isAuthenticated()) {
+      api
+        .getMyLearning()
+        .then((res) => {
+          if (!isMounted) return
+          if (res && res.data && Array.isArray(res.data)) {
+            const dbCourses = res.data
+              .filter((enr) => enr && enr.course && typeof enr.course === 'object')
+              .map((enr) => {
+                const c = enr.course || {}
+                const creatorName =
+                  (c.creator && typeof c.creator === 'object' ? c.creator.name : c.creator) ||
+                  'CraftLoop Creator'
+                const lessonsCount = Array.isArray(c.lessons)
+                  ? c.lessons.length
+                  : typeof c.lessonsCount === 'number'
+                  ? c.lessonsCount
+                  : 0
+
+                return {
+                  id: c._id || enr._id,
+                  title: c.title || 'Untitled Course',
+                  creator: creatorName,
+                  lessons: lessonsCount,
+                  duration: c.duration || 'Flexible',
+                  image:
+                    c.thumbnail ||
+                    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80',
+                  progress: typeof enr.progress === 'number' ? enr.progress : 0,
+                  status: enr.status || 'in-progress',
+                }
+              })
+
+            setCourses(dbCourses)
+            setError(null)
+          } else {
+            setCourses([])
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching My Learning from backend:', err)
+          if (isMounted) {
+            setError('Unable to load your courses right now. Please try again.')
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false)
+        })
+    } else {
+      setIsLoading(false)
+    }
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   return (
@@ -26,8 +82,34 @@ function MyLearning() {
         </p>
       </div>
 
-      {/* Empty State */}
-      {courses.length === 0 ? (
+      {/* Error State */}
+      {error ? (
+        <div className="rounded-3xl border border-purple-100 bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-2xl text-red-500">
+            ⚠️
+          </div>
+          <h2 className="mt-5 text-xl font-bold text-gray-900">Something went wrong</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+          >
+            Retry
+          </button>
+        </div>
+      ) : isLoading ? (
+        <div className="flex h-64 items-center justify-center rounded-3xl border border-purple-100 bg-white p-10 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600" />
+            <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:150ms]" />
+            <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:300ms]" />
+            <span className="ml-2 text-sm font-semibold text-purple-700">Loading your courses...</span>
+          </div>
+        </div>
+      ) : courses.length === 0 ? (
         <div className="rounded-3xl border border-purple-100 bg-white px-6 py-16 text-center shadow-sm">
 
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-2xl text-purple-600">

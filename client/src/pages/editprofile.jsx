@@ -1,50 +1,197 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 
 function EditProfile() {
   const navigate = useNavigate()
 
-  const savedProfile = JSON.parse(
-    localStorage.getItem('craftloopCreatorProfile') || 'null'
-  )
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' })
 
-  const [formData, setFormData] = useState(
-    savedProfile || {
-      name: 'Alex Morgan',
-      username: 'alexmorgan',
-      bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
-      location: 'India',
-      profession: 'Designer',
-      skills: 'UI/UX Design, Graphic Design, Branding, Figma',
+  const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || '{}')
+  const isViewer = storedUser?.role === 'viewer' || window.location.pathname.includes('viewer')
+  const profilePath = isViewer ? '/viewerprofile' : '/profile'
+
+  const [formData, setFormData] = useState({
+    name: 'Alex Morgan',
+    username: 'alexmorgan',
+    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
+    location: 'India',
+    profession: 'Designer',
+    skills: 'UI/UX Design, Graphic Design, Branding, Figma',
+    avatar: '',
+  })
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }))
+    }, 3800)
+  }
+
+  // Load initial profile from MongoDB Atlas via API
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setLoading(true)
+        const res = await api.getProfile()
+        if (res && res.success && res.data) {
+          const u = res.data
+          setFormData({
+            name: u.name || 'Alex Morgan',
+            username: u.username || (u.email ? u.email.split('@')[0] : 'alexmorgan'),
+            bio: u.bio !== undefined ? u.bio : 'Creative designer passionate about branding and visual storytelling.',
+            location: u.location || 'India',
+            profession: u.title || 'Designer',
+            skills: Array.isArray(u.skills) ? u.skills.join(', ') : (u.skills || 'UI/UX Design, Graphic Design, Branding, Figma'),
+            avatar: u.avatar || '',
+          })
+        }
+      } catch (err) {
+        console.error('Failed to load profile from backend:', err)
+        showToast('Unable to load latest profile from server. Showing local cache.', 'warning')
+      } finally {
+        setLoading(false)
+      }
     }
-  )
+
+    loadProfile()
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP).', 'error')
+      return
+    }
+
+    const FIVE_GB = 5000 * 1024 * 1024
+    if (file.size > FIVE_GB) {
+      showToast('File exceeds the 5 GB limit. Maximum file size: 5 GB.', 'warning')
+      return
+    }
+
+    try {
+      showToast('Uploading profile picture...', 'info')
+      const res = await api.uploadMedia(file, 'craftloop/avatars')
+      if (res && res.success && res.url) {
+        setFormData((prev) => ({ ...prev, avatar: res.url }))
+        showToast('Profile picture uploaded! Click Save Changes to apply.', 'success')
+      } else {
+        throw new Error(res?.message || 'Profile picture upload failed.')
+      }
+    } catch (err) {
+      console.error('Avatar upload failed:', err)
+      const errorMsg =
+        err?.status === 413 || (err?.message && err.message.toLowerCase().includes('large'))
+          ? 'File size exceeds limit. Please choose a smaller image.'
+          : (err.message || 'Profile picture upload failed. Please try again.')
+      showToast(errorMsg, 'error')
+    }
+  }
+
+  // Submit profile changes to MongoDB Atlas
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    localStorage.setItem(
-      'craftloopCreatorProfile',
-      JSON.stringify(formData)
-    )
+    if (!formData.name.trim()) {
+      showToast('Full name cannot be empty.', 'warning')
+      return
+    }
 
-    alert('Profile updated successfully!')
+    try {
+      setSaving(true)
+      const payload = {
+        name: formData.name.trim(),
+        username: formData.username.trim(),
+        bio: formData.bio.trim(),
+        location: formData.location.trim(),
+        profession: formData.profession.trim(),
+        title: formData.profession.trim(),
+        skills: formData.skills,
+        avatar: formData.avatar || '',
+      }
 
-    navigate('/profile')
+      const res = await api.updateProfile(payload)
+      if (res && res.success && res.data) {
+        const u = res.data
+        const updatedProfile = {
+          name: u.name || payload.name,
+          username: u.username || payload.username,
+          bio: u.bio !== undefined ? u.bio : payload.bio,
+          location: u.location || payload.location,
+          profession: u.title || payload.profession,
+          skills: Array.isArray(u.skills) ? u.skills.join(', ') : payload.skills,
+          avatar: u.avatar || payload.avatar,
+        }
+
+        // Sync with localStorage for Topbar / Navigation consistency
+        if (isViewer) {
+          localStorage.setItem('craftloopViewerProfile', JSON.stringify(updatedProfile))
+        } else {
+          localStorage.setItem('craftloopCreatorProfile', JSON.stringify(updatedProfile))
+        }
+
+        const currentUser = JSON.parse(localStorage.getItem('craftloop_user') || '{}')
+        localStorage.setItem(
+          'craftloop_user',
+          JSON.stringify({ ...currentUser, ...u })
+        )
+
+        showToast('Profile updated successfully in MongoDB Atlas!', 'success')
+        setTimeout(() => {
+          navigate(profilePath)
+        }, 800)
+      }
+    } catch (err) {
+      console.error('Failed to update profile:', err)
+      showToast(err.message || 'Error updating profile on server.', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const initials = (formData.name || 'AM')
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
     <div className="edit-profile-page">
-      <div className="edit-profile-main">
+      {/* On-screen Toast Notification */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-sm font-medium text-white shadow-2xl transition-all animate-bounce">
+          <span className="text-lg">
+            {toast.type === 'success' && '✅'}
+            {toast.type === 'error' && '❌'}
+            {toast.type === 'warning' && '⚠️'}
+            {toast.type === 'info' && 'ℹ️'}
+          </span>
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast((prev) => ({ ...prev, show: false }))}
+            className="ml-2 text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
+      <div className="edit-profile-main">
         {/* Header */}
         <div className="edit-profile-header">
           <div>
@@ -60,7 +207,7 @@ function EditProfile() {
           <button
             type="button"
             className="back-profile-btn"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate(profilePath)}
           >
             ← Back to Profile
           </button>
@@ -68,184 +215,190 @@ function EditProfile() {
 
         {/* Form */}
         <div className="edit-profile-layout">
-
           <div className="edit-profile-card">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent" />
+                <p className="mt-3 text-xs font-semibold text-gray-500">
+                  Loading profile data from MongoDB Atlas...
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                {/* Profile Photo */}
+                <div className="edit-photo-section">
+                  <div className="edit-avatar">
+                    {formData.avatar ? (
+                      <img
+                        src={formData.avatar}
+                        alt={formData.name}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
 
-            <form onSubmit={handleSubmit}>
+                  <div>
+                    <h3>Profile Photo</h3>
 
-              {/* Profile Photo */}
-              <div className="edit-photo-section">
+                    <p>
+                      Add a professional photo to your profile. Maximum file size: 5 GB.
+                    </p>
 
-                <div className="edit-avatar">
-                  AM
+                    <input
+                      id="avatar-file-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarFileChange}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      className="change-photo-btn"
+                      onClick={() => {
+                        const input = document.getElementById('avatar-file-input')
+                        if (input) input.click()
+                      }}
+                    >
+                      Change Photo
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <h3>Profile Photo</h3>
+                {/* Basic Information */}
+                <div className="form-section">
+                  <div className="form-section-title">
+                    <h2>Basic Information</h2>
 
-                  <p>
-                    Add a professional photo to your profile.
-                  </p>
+                    <p>
+                      Keep your profile information up to date.
+                    </p>
+                  </div>
 
+                  <div className="edit-form-row">
+                    <div className="edit-form-group">
+                      <label>Full Name</label>
+
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="Enter your name"
+                        required
+                      />
+                    </div>
+
+                    <div className="edit-form-group">
+                      <label>Username</label>
+
+                      <input
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        placeholder="Enter username"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="edit-form-group">
+                    <label>Bio</label>
+
+                    <textarea
+                      name="bio"
+                      value={formData.bio}
+                      onChange={handleChange}
+                      placeholder="Tell people about yourself..."
+                      rows="5"
+                      maxLength="250"
+                    />
+
+                    <span className="character-count">
+                      {formData.bio.length}/250
+                    </span>
+                  </div>
+                </div>
+
+                {/* Professional Information */}
+                <div className="form-section">
+                  <div className="form-section-title">
+                    <h2>Professional Information</h2>
+
+                    <p>
+                      Tell the community what you do.
+                    </p>
+                  </div>
+
+                  <div className="edit-form-row">
+                    <div className="edit-form-group">
+                      <label>Location</label>
+
+                      <input
+                        type="text"
+                        name="location"
+                        value={formData.location}
+                        onChange={handleChange}
+                        placeholder="Your location"
+                      />
+                    </div>
+
+                    <div className="edit-form-group">
+                      <label>Profession</label>
+
+                      <input
+                        type="text"
+                        name="profession"
+                        value={formData.profession}
+                        onChange={handleChange}
+                        placeholder="Your profession"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="edit-form-group">
+                    <label>Skills</label>
+
+                    <input
+                      type="text"
+                      name="skills"
+                      value={formData.skills}
+                      onChange={handleChange}
+                      placeholder="UI/UX Design, Figma..."
+                    />
+
+                    <span className="input-hint">
+                      Separate multiple skills with commas.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="edit-form-actions">
                   <button
                     type="button"
-                    className="change-photo-btn"
-                    onClick={() =>
-                      alert('Profile photo upload will be added later.')
-                    }
+                    className="discard-profile-btn"
+                    onClick={() => navigate(profilePath)}
                   >
-                    Change Photo
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="save-profile-btn"
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
-
-              </div>
-
-              {/* Basic Information */}
-              <div className="form-section">
-
-                <div className="form-section-title">
-                  <h2>Basic Information</h2>
-
-                  <p>
-                    Keep your profile information up to date.
-                  </p>
-                </div>
-
-                <div className="edit-form-row">
-
-                  <div className="edit-form-group">
-                    <label>Full Name</label>
-
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter your name"
-                    />
-                  </div>
-
-                  <div className="edit-form-group">
-                    <label>Username</label>
-
-                    <input
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      placeholder="Enter username"
-                    />
-                  </div>
-
-                </div>
-
-                <div className="edit-form-group">
-
-                  <label>Bio</label>
-
-                  <textarea
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleChange}
-                    placeholder="Tell people about yourself..."
-                    rows="5"
-                    maxLength="250"
-                  />
-
-                  <span className="character-count">
-                    {formData.bio.length}/250
-                  </span>
-
-                </div>
-
-              </div>
-
-              {/* Professional Information */}
-              <div className="form-section">
-
-                <div className="form-section-title">
-                  <h2>Professional Information</h2>
-
-                  <p>
-                    Tell the community what you do.
-                  </p>
-                </div>
-
-                <div className="edit-form-row">
-
-                  <div className="edit-form-group">
-                    <label>Location</label>
-
-                    <input
-                      type="text"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      placeholder="Your location"
-                    />
-                  </div>
-
-                  <div className="edit-form-group">
-                    <label>Profession</label>
-
-                    <input
-                      type="text"
-                      name="profession"
-                      value={formData.profession}
-                      onChange={handleChange}
-                      placeholder="Your profession"
-                    />
-                  </div>
-
-                </div>
-
-                <div className="edit-form-group">
-
-                  <label>Skills</label>
-
-                  <input
-                    type="text"
-                    name="skills"
-                    value={formData.skills}
-                    onChange={handleChange}
-                    placeholder="UI/UX Design, Figma..."
-                  />
-
-                  <span className="input-hint">
-                    Separate multiple skills with commas.
-                  </span>
-
-                </div>
-
-              </div>
-
-              {/* Actions */}
-              <div className="edit-form-actions">
-
-                <button
-                  type="button"
-                  className="discard-profile-btn"
-                  onClick={() => navigate('/profile')}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-profile-btn"
-                >
-                  Save Changes
-                </button>
-
-              </div>
-
-            </form>
-
+              </form>
+            )}
           </div>
 
           {/* Preview */}
           <aside className="profile-preview-card">
-
             <div className="preview-heading">
               <h3>Profile Preview</h3>
               <span>Live Preview</span>
@@ -254,9 +407,16 @@ function EditProfile() {
             <div className="preview-cover"></div>
 
             <div className="preview-content">
-
               <div className="preview-avatar">
-                AM
+                {formData.avatar ? (
+                  <img
+                    src={formData.avatar}
+                    alt={formData.name}
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
 
               <h2>{formData.name}</h2>
@@ -275,8 +435,7 @@ function EditProfile() {
               </div>
 
               <div className="preview-skills">
-
-                {formData.skills
+                {(formData.skills || '')
                   .split(',')
                   .map((skill) => skill.trim())
                   .filter(Boolean)
@@ -285,15 +444,10 @@ function EditProfile() {
                       {skill}
                     </span>
                   ))}
-
               </div>
-
             </div>
-
           </aside>
-
         </div>
-
       </div>
     </div>
   )

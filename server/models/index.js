@@ -4,6 +4,10 @@ const Course = require("./Course");
 const CommunityPost = require("./CommunityPost");
 const Message = require("./Message");
 const Enrollment = require("./Enrollment");
+const Notification = require("./Notification");
+const Transaction = require("./Transaction");
+const SupportTicket = require("./SupportTicket");
+const SavedProject = require("./SavedProject");
 
 module.exports = {
   User,
@@ -12,4 +16,9 @@ module.exports = {
   CommunityPost,
   Message,
   Enrollment,
+  Notification,
+  Transaction,
+  SupportTicket,
+  SavedProject,
 };
+

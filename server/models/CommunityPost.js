@@ -48,6 +48,10 @@ const communityPostSchema = new mongoose.Schema(
       type: String,
       required: [true, "Post content is required"],
     },
+    image: {
+      type: String,
+      default: "",
+    },
     tags: {
       type: [String],
       default: [],

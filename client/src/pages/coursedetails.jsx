@@ -1,21 +1,18 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import api from '../services/api'
 
 function CourseDetails() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const queryCourseId = searchParams.get('courseId') || searchParams.get('id')
 
-  const savedCourses = JSON.parse(
-    localStorage.getItem('craftloopCourses') || '[]'
-  )
-
-  const course =
-    savedCourses.length > 0
-      ? savedCourses[savedCourses.length - 1]
-      : null
-
-  const [lessons, setLessons] = useState(
-    course?.lessons || []
-  )
+  const [courses, setCourses] = useState([])
+  const [course, setCourse] = useState(null)
+  const [lessons, setLessons] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [savingLesson, setSavingLesson] = useState(false)
+  const [error, setError] = useState(null)
 
   const [showLessonForm, setShowLessonForm] = useState(false)
   const [editingLessonId, setEditingLessonId] = useState(null)
@@ -27,6 +24,61 @@ function CourseDetails() {
     duration: '',
   })
 
+  const fetchCourses = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      let courseList = []
+
+      if (api.isAuthenticated()) {
+        try {
+          const res = await api.getCourses({ mine: 'true' })
+          if (res && res.success && Array.isArray(res.data)) {
+            courseList = res.data
+          }
+        } catch (apiErr) {
+          console.warn('Backend getCourses error, checking local fallback:', apiErr)
+        }
+      }
+
+      if (courseList.length === 0) {
+        const savedCourses = JSON.parse(
+          localStorage.getItem('craftloopCourses') || '[]'
+        )
+        courseList = Array.isArray(savedCourses) ? savedCourses : []
+      }
+
+      setCourses(courseList)
+
+      let selected = null
+      if (queryCourseId) {
+        selected = courseList.find(
+          (c) => (c._id || c.id)?.toString() === queryCourseId.toString()
+        )
+      }
+
+      if (!selected && courseList.length > 0) {
+        selected = courseList[0]
+      }
+
+      setCourse(selected)
+      setLessons(selected?.lessons || [])
+
+      if (courseList.length > 0) {
+        localStorage.setItem('craftloopCourses', JSON.stringify(courseList))
+      }
+    } catch (err) {
+      console.error('Error fetching course data:', err)
+      setError('Failed to load courses from server.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCourses()
+  }, [queryCourseId])
+
   const handleChange = (e) => {
     const { name, value } = e.target
 
@@ -36,25 +88,54 @@ function CourseDetails() {
     }))
   }
 
-  const saveLessons = (updatedLessons) => {
+  const saveLessons = async (updatedLessons) => {
     setLessons(updatedLessons)
 
-    const updatedCourses = savedCourses.map((item) =>
-      item.id === course.id
-        ? {
-            ...item,
-            lessons: updatedLessons,
-          }
-        : item
-    )
+    if (!course) return
 
-    localStorage.setItem(
-      'craftloopCourses',
-      JSON.stringify(updatedCourses)
+    const courseId = course._id || course.id
+    const updatedCourse = {
+      ...course,
+      lessons: updatedLessons,
+    }
+
+    setCourse(updatedCourse)
+
+    const updatedCourses = courses.map((item) =>
+      (item._id || item.id) === courseId ? updatedCourse : item
     )
+    setCourses(updatedCourses)
+    localStorage.setItem('craftloopCourses', JSON.stringify(updatedCourses))
+
+    if (api.isAuthenticated()) {
+      try {
+        setSavingLesson(true)
+        const cleanLessons = updatedLessons.map((lesson, idx) => ({
+          title: lesson.title || 'Lesson',
+          description: lesson.description || '',
+          videoUrl: lesson.videoUrl || '',
+          duration: lesson.duration || '10 mins',
+          order: lesson.order || idx + 1,
+        }))
+
+        const res = await api.updateCourse(courseId, {
+          lessons: cleanLessons,
+        })
+
+        if (res && res.data && Array.isArray(res.data.lessons)) {
+          setLessons(res.data.lessons)
+          setCourse(res.data)
+        }
+      } catch (err) {
+        console.error('Failed to sync lessons with backend:', err)
+        alert('Notice: Lessons updated locally, but server sync failed.')
+      } finally {
+        setSavingLesson(false)
+      }
+    }
   }
 
-  const handleAddLesson = (e) => {
+  const handleAddLesson = async (e) => {
     e.preventDefault()
 
     if (!lessonForm.title || !lessonForm.description) {
@@ -64,7 +145,7 @@ function CourseDetails() {
 
     if (editingLessonId) {
       const updatedLessons = lessons.map((lesson) =>
-        lesson.id === editingLessonId
+        (lesson._id || lesson.id) === editingLessonId
           ? {
               ...lesson,
               ...lessonForm,
@@ -72,7 +153,7 @@ function CourseDetails() {
           : lesson
       )
 
-      saveLessons(updatedLessons)
+      await saveLessons(updatedLessons)
       alert('Lesson updated successfully!')
     } else {
       const newLesson = {
@@ -80,14 +161,11 @@ function CourseDetails() {
         title: lessonForm.title,
         description: lessonForm.description,
         videoUrl: lessonForm.videoUrl,
-        duration: lessonForm.duration,
+        duration: lessonForm.duration || '10 mins',
+        order: lessons.length + 1,
       }
 
-      saveLessons([
-        ...lessons,
-        newLesson,
-      ])
-
+      await saveLessons([...lessons, newLesson])
       alert('Lesson added successfully!')
     }
 
@@ -110,7 +188,7 @@ function CourseDetails() {
       duration: lesson.duration || '',
     })
 
-    setEditingLessonId(lesson.id)
+    setEditingLessonId(lesson._id || lesson.id)
     setShowLessonForm(true)
 
     window.scrollTo({
@@ -119,7 +197,7 @@ function CourseDetails() {
     })
   }
 
-  const handleDeleteLesson = (lessonId) => {
+  const handleDeleteLesson = async (lessonId) => {
     const confirmDelete = window.confirm(
       'Are you sure you want to delete this lesson?'
     )
@@ -127,13 +205,13 @@ function CourseDetails() {
     if (!confirmDelete) return
 
     const updatedLessons = lessons.filter(
-      (lesson) => lesson.id !== lessonId
+      (lesson) => (lesson._id || lesson.id) !== lessonId
     )
 
-    saveLessons(updatedLessons)
+    await saveLessons(updatedLessons)
   }
 
-  const handleMoveUp = (index) => {
+  const handleMoveUp = async (index) => {
     if (index === 0) return
 
     const updatedLessons = [...lessons]
@@ -142,10 +220,10 @@ function CourseDetails() {
     updatedLessons[index] = updatedLessons[index - 1]
     updatedLessons[index - 1] = currentLesson
 
-    saveLessons(updatedLessons)
+    await saveLessons(updatedLessons)
   }
 
-  const handleMoveDown = (index) => {
+  const handleMoveDown = async (index) => {
     if (index === lessons.length - 1) return
 
     const updatedLessons = [...lessons]
@@ -154,7 +232,7 @@ function CourseDetails() {
     updatedLessons[index] = updatedLessons[index + 1]
     updatedLessons[index + 1] = currentLesson
 
-    saveLessons(updatedLessons)
+    await saveLessons(updatedLessons)
   }
 
   const handleCancelLesson = () => {
@@ -169,14 +247,24 @@ function CourseDetails() {
     setShowLessonForm(false)
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#faf9ff] p-8">
+        <div className="mx-auto max-w-4xl rounded-3xl bg-white p-16 text-center shadow-sm">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+          <p className="mt-4 text-sm font-medium text-gray-500">
+            Loading course details...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (!course) {
     return (
       <div className="min-h-screen bg-[#faf9ff] p-8">
         <div className="mx-auto max-w-4xl rounded-3xl bg-white p-10 text-center shadow-sm">
-
-          <div className="text-5xl">
-            🎓
-          </div>
+          <div className="text-5xl">🎓</div>
 
           <h1 className="mt-4 text-2xl font-bold text-gray-900">
             No Course Found
@@ -192,7 +280,6 @@ function CourseDetails() {
           >
             Create Course
           </button>
-
         </div>
       </div>
     )
@@ -240,6 +327,49 @@ function CourseDetails() {
           </button>
 
         </div>
+
+        {/* COURSE SELECTOR IF MULTIPLE */}
+        {courses.length > 1 && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm border border-purple-100">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-700">Select Course:</span>
+              <select
+                value={course?._id || course?.id || ''}
+                onChange={(e) => {
+                  const selectedId = e.target.value
+                  const found = courses.find(
+                    (c) => (c._id || c.id)?.toString() === selectedId.toString()
+                  )
+                  if (found) {
+                    setCourse(found)
+                    setLessons(found.lessons || [])
+                  }
+                }}
+                className="rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-2 text-sm font-medium text-gray-800 shadow-sm focus:border-purple-600 focus:outline-none"
+              >
+                {courses.map((c) => (
+                  <option key={c._id || c.id} value={c._id || c.id}>
+                    {c.title} ({Array.isArray(c.lessons) ? c.lessons.length : 0} lessons)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {savingLesson && (
+              <span className="flex items-center gap-2 text-xs font-semibold text-purple-600 animate-pulse">
+                <span className="inline-block h-2 w-2 rounded-full bg-purple-600"></span>
+                Saving lessons to database...
+              </span>
+            )}
+          </div>
+        )}
+
+        {savingLesson && courses.length <= 1 && (
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-purple-600 animate-pulse">
+            <span className="inline-block h-2 w-2 rounded-full bg-purple-600"></span>
+            Saving lessons to database...
+          </div>
+        )}
 
         {/* COURSE INFORMATION */}
         <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm">
@@ -473,89 +603,92 @@ function CourseDetails() {
           ) : (
             <div className="space-y-4">
 
-              {lessons.map((lesson, index) => (
-                <div
-                  key={lesson.id}
-                  className="rounded-2xl border border-gray-100 p-5 transition hover:border-purple-200 hover:bg-purple-50/30"
-                >
+              {lessons.map((lesson, index) => {
+                const lessonId = lesson._id || lesson.id || index
+                return (
+                  <div
+                    key={lessonId}
+                    className="rounded-2xl border border-gray-100 p-5 transition hover:border-purple-200 hover:bg-purple-50/30"
+                  >
 
-                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4">
 
-                    <div className="flex gap-4">
+                      <div className="flex gap-4">
 
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100 font-bold text-purple-700">
-                        {index + 1}
-                      </div>
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100 font-bold text-purple-700">
+                          {index + 1}
+                        </div>
 
-                      <div>
+                        <div>
 
-                        <h3 className="font-bold text-gray-900">
-                          {lesson.title}
-                        </h3>
+                          <h3 className="font-bold text-gray-900">
+                            {lesson.title}
+                          </h3>
 
-                        <p className="mt-1 text-sm leading-6 text-gray-500">
-                          {lesson.description}
-                        </p>
-
-                        {lesson.duration && (
-                          <p className="mt-2 text-xs font-semibold text-purple-600">
-                            ⏱ {lesson.duration}
+                          <p className="mt-1 text-sm leading-6 text-gray-500">
+                            {lesson.description}
                           </p>
-                        )}
 
-                        {lesson.videoUrl && (
-                          <a
-                            href={lesson.videoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-block text-sm font-semibold text-purple-600 hover:underline"
-                          >
-                            ▶ Watch Video
-                          </a>
-                        )}
+                          {lesson.duration && (
+                            <p className="mt-2 text-xs font-semibold text-purple-600">
+                              ⏱ {lesson.duration}
+                            </p>
+                          )}
+
+                          {lesson.videoUrl && (
+                            <a
+                              href={lesson.videoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-block text-sm font-semibold text-purple-600 hover:underline"
+                            >
+                              ▶ Watch Video
+                            </a>
+                          )}
+
+                        </div>
 
                       </div>
 
-                    </div>
+                      <div className="flex flex-wrap gap-2">
 
-                    <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleMoveUp(index)}
+                          disabled={index === 0}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
 
-                      <button
-                        onClick={() => handleMoveUp(index)}
-                        disabled={index === 0}
-                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        ↑
-                      </button>
+                        <button
+                          onClick={() => handleMoveDown(index)}
+                          disabled={index === lessons.length - 1}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
 
-                      <button
-                        onClick={() => handleMoveDown(index)}
-                        disabled={index === lessons.length - 1}
-                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        ↓
-                      </button>
+                        <button
+                          onClick={() => handleEditLesson(lesson)}
+                          className="rounded-lg border border-purple-200 px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50"
+                        >
+                          Edit
+                        </button>
 
-                      <button
-                        onClick={() => handleEditLesson(lesson)}
-                        className="rounded-lg border border-purple-200 px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50"
-                      >
-                        Edit
-                      </button>
+                        <button
+                          onClick={() => handleDeleteLesson(lesson._id || lesson.id)}
+                          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
 
-                      <button
-                        onClick={() => handleDeleteLesson(lesson.id)}
-                        className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
+                      </div>
 
                     </div>
 
                   </div>
-
-                </div>
-              ))}
+                )
+              })}
 
             </div>
           )}

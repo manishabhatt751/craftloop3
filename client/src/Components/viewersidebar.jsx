@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function ViewerSidebar() {
   const navigate = useNavigate()
@@ -35,7 +36,7 @@ function ViewerSidebar() {
   ]
 
   const handleLogout = () => {
-    localStorage.removeItem('craftloop_user')
+    api.logout()
     navigate('/')
   }
 

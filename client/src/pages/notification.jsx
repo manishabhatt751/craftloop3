@@ -1,69 +1,90 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function Notification() {
   const navigate = useNavigate()
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Your profile is getting attention',
-      message: 'More creators are viewing your profile.',
-      time: '10 minutes ago',
-      type: 'profile',
-      read: false,
-    },
-    {
-      id: 2,
-      title: 'New message',
-      message: 'You received a new message from Maya Creative.',
-      time: '1 hour ago',
-      type: 'message',
-      read: false,
-    },
-    {
-      id: 3,
-      title: 'New review',
-      message: 'Someone left feedback on your project.',
-      time: 'Yesterday',
-      type: 'review',
-      read: true,
-    },
-  ])
+  const fetchNotifications = async () => {
+    try {
+      if (api.isAuthenticated()) {
+        const res = await api.getNotifications()
+        if (res && res.success && Array.isArray(res.data)) {
+          setNotifications(res.data)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [])
 
   const unreadCount = notifications.filter(
-    (notification) => !notification.read
+    (notification) => !notification.isRead
   ).length
 
-  const markAsRead = (id) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
+  const markAsRead = async (id) => {
+    try {
+      await api.markNotificationAsRead(id)
+      setNotifications((current) =>
+        current.map((notification) =>
+          (notification._id || notification.id) === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
       )
-    )
+    } catch (err) {
+      console.error('Error marking notification read:', err)
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({
-        ...notification,
-        read: true,
-      }))
-    )
+  const markAllAsRead = async () => {
+    try {
+      await api.markAllNotificationsAsRead()
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          isRead: true,
+        }))
+      )
+    } catch (err) {
+      console.error('Error marking all notifications read:', err)
+    }
   }
 
-  const deleteNotification = (id) => {
-    setNotifications((current) =>
-      current.filter((notification) => notification.id !== id)
-    )
+  const deleteNotification = async (id) => {
+    try {
+      await api.deleteNotification(id)
+      setNotifications((current) =>
+        current.filter((notification) => (notification._id || notification.id) !== id)
+      )
+    } catch (err) {
+      console.error('Error deleting notification:', err)
+    }
+  }
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return 'Just now'
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+    if (diff < 60) return 'Just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`
+    return `${Math.floor(diff / 86400)} days ago`
   }
 
   const getIcon = (type) => {
-    if (type === 'profile') return '👤'
+    if (type === 'community') return '👥'
     if (type === 'message') return '💬'
-    if (type === 'review') return '⭐'
+    if (type === 'course') return '📚'
+    if (type === 'project') return '📁'
+    if (type === 'wallet') return '💰'
     return '🔔'
   }
 
@@ -138,67 +159,68 @@ function Notification() {
           </div>
         ) : (
           <div>
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`flex gap-4 border-b border-gray-100 p-5 transition last:border-b-0 ${
-                  notification.read
-                    ? 'bg-white'
-                    : 'bg-purple-50/50'
-                }`}
-              >
-                {/* Icon */}
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xl">
-                  {getIcon(notification.type)}
-                </div>
+            {notifications.map((notification) => {
+              const notifId = notification._id || notification.id
+              return (
+                <div
+                  key={notifId}
+                  className={`flex gap-4 border-b border-gray-100 p-5 transition last:border-b-0 ${
+                    notification.isRead
+                      ? 'bg-white'
+                      : 'bg-purple-50/50'
+                  }`}
+                >
+                  {/* Icon */}
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xl">
+                    {getIcon(notification.type)}
+                  </div>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-col justify-between gap-2 sm:flex-row">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">
-                          {notification.title}
-                        </h3>
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col justify-between gap-2 sm:flex-row">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900">
+                            {notification.title}
+                          </h3>
 
-                        {!notification.read && (
-                          <span className="h-2 w-2 rounded-full bg-purple-600" />
-                        )}
+                          {!notification.isRead && (
+                            <span className="h-2 w-2 rounded-full bg-purple-600" />
+                          )}
+                        </div>
+
+                        <p className="mt-1 text-sm leading-6 text-gray-500">
+                          {notification.message}
+                        </p>
+
+                        <p className="mt-2 text-xs text-gray-400">
+                          {formatTime(notification.createdAt || notification.time)}
+                        </p>
                       </div>
 
-                      <p className="mt-1 text-sm leading-6 text-gray-500">
-                        {notification.message}
-                      </p>
+                      {/* Actions */}
+                      <div className="flex shrink-0 gap-2">
+                        {!notification.isRead && (
+                          <button
+                            onClick={() => markAsRead(notifId)}
+                            className="rounded-lg px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                          >
+                            Mark read
+                          </button>
+                        )}
 
-                      <p className="mt-2 text-xs text-gray-400">
-                        {notification.time}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex shrink-0 gap-2">
-                      {!notification.read && (
                         <button
-                          onClick={() => markAsRead(notification.id)}
-                          className="rounded-lg px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                          onClick={() => deleteNotification(notifId)}
+                          className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100"
                         >
-                          Mark read
+                          Remove
                         </button>
-                      )}
-
-                      <button
-                        onClick={() =>
-                          deleteNotification(notification.id)
-                        }
-                        className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100"
-                      >
-                        Remove
-                      </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

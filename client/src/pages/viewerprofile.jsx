@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function ViewerProfile() {
   const navigate = useNavigate()
@@ -7,25 +8,52 @@ function ViewerProfile() {
   const [coursesStarted, setCoursesStarted] = useState(0)
   const [lessonsCompleted, setLessonsCompleted] = useState(0)
 
+  const [profile, setProfile] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+    const storedProfile = JSON.parse(localStorage.getItem('craftloopViewerProfile') || 'null')
+    return {
+      name: storedProfile?.name || storedUser?.name || 'Viewer',
+      username: storedProfile?.username || (storedUser?.email ? storedUser.email.split('@')[0] : 'viewer'),
+      avatar: storedProfile?.avatar || storedUser?.avatar || '',
+    }
+  })
+
+  const viewerName = profile.name
+  const viewerUsername = profile.username
+
   useEffect(() => {
-    const savedCourses =
-      JSON.parse(localStorage.getItem('craftloop_learning')) || []
+    if (api.isAuthenticated()) {
+      api
+        .getProfile()
+        .then((res) => {
+          if (res && res.success && res.data) {
+            const u = res.data
+            setProfile((prev) => ({
+              ...prev,
+              name: u.name || prev.name,
+              username: u.username || (u.email ? u.email.split('@')[0] : prev.username),
+              avatar: u.avatar || prev.avatar,
+            }))
+          }
+        })
+        .catch(() => {})
 
-    setCoursesStarted(savedCourses.length)
-
-    const completedLessons = savedCourses.reduce(
-      (total, course) => {
-        const progress = course.progress || 0
-
-        return (
-          total +
-          Math.round((progress / 100) * course.lessons)
-        )
-      },
-      0
-    )
-
-    setLessonsCompleted(completedLessons)
+      api
+        .getMyLearning()
+        .then((res) => {
+          if (res && res.data && Array.isArray(res.data)) {
+            setCoursesStarted(res.data.length)
+            const completedCount = res.data.reduce((total, enr) => {
+              const lessons = Array.isArray(enr.completedLessonIndexes)
+                ? enr.completedLessonIndexes.length
+                : 0
+              return total + lessons
+            }, 0)
+            setLessonsCompleted(completedCount)
+          }
+        })
+        .catch(() => {})
+    }
   }, [])
 
   return (
@@ -57,20 +85,26 @@ function ViewerProfile() {
 
             <div className="flex items-end gap-5">
 
-              <img
-                src="https://i.pravatar.cc/150?img=32"
-                alt="Viewer profile"
-                className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-md"
-              />
+              {profile.avatar ? (
+                <img
+                  src={profile.avatar}
+                  alt="Viewer profile"
+                  className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-md"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-white bg-purple-600 text-3xl font-bold text-white shadow-md">
+                  {(profile.name || 'V').slice(0, 2).toUpperCase()}
+                </div>
+              )}
 
               <div className="pb-2">
 
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Viewer
+                  {viewerName}
                 </h2>
 
                 <p className="mt-1 text-sm text-purple-600">
-                  @viewer
+                  @{viewerUsername}
                 </p>
 
               </div>
@@ -79,7 +113,7 @@ function ViewerProfile() {
 
             <button
               type="button"
-              onClick={() => navigate('/editprofile')}
+              onClick={() => navigate('/viewereditprofile')}
               className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
             >
               Edit Profile

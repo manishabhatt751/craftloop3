@@ -1,33 +1,99 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function Balance() {
   const navigate = useNavigate()
   const [showWithdraw, setShowWithdraw] = useState(false)
   const [amount, setAmount] = useState('')
   const [message, setMessage] = useState('')
+  const [isError, setIsError] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [wallet, setWallet] = useState({
+    availableBalance: 0,
+    totalEarnings: 0,
+    totalWithdrawn: 0,
+    thisMonth: 0,
+    transactions: [],
+  })
 
-  const availableBalance = 12450
+  const fetchWallet = async () => {
+    try {
+      setLoading(true)
+      const res = await api.getWallet()
+      if (res && res.success) {
+        setWallet({
+          availableBalance: res.availableBalance || 0,
+          totalEarnings: res.totalEarnings || 0,
+          totalWithdrawn: res.totalWithdrawn || 0,
+          thisMonth: res.thisMonth || 0,
+          transactions: Array.isArray(res.transactions) ? res.transactions : [],
+        })
+      }
+    } catch (err) {
+      console.error('Failed to fetch wallet:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const handleWithdraw = () => {
+  useEffect(() => {
+    fetchWallet()
+  }, [])
+
+  const availableBalance = wallet.availableBalance
+
+  const handleWithdraw = async () => {
     const withdrawAmount = Number(amount)
 
     if (!withdrawAmount || withdrawAmount <= 0) {
+      setIsError(true)
       setMessage('Please enter a valid amount.')
       return
     }
 
     if (withdrawAmount > availableBalance) {
+      setIsError(true)
       setMessage('Amount cannot be greater than your available balance.')
       return
     }
 
-    setMessage(
-      `Withdrawal request of ₹${withdrawAmount.toLocaleString('en-IN')} submitted successfully.`
-    )
+    try {
+      setWithdrawing(true)
+      setIsError(false)
+      const res = await api.withdrawBalance({ amount: withdrawAmount })
+      if (res && res.success) {
+        setMessage(
+          res.message ||
+            `Withdrawal request of ₹${withdrawAmount.toLocaleString('en-IN')} submitted successfully.`
+        )
+        setAmount('')
+        setShowWithdraw(false)
+        fetchWallet()
+      } else {
+        setIsError(true)
+        setMessage(res?.message || 'Withdrawal failed. Please try again.')
+      }
+    } catch (err) {
+      setIsError(true)
+      setMessage(err?.message || 'Withdrawal failed. Please try again.')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
 
-    setAmount('')
-    setShowWithdraw(false)
+  const formatTxDate = (dateStr) => {
+    if (!dateStr) return 'Recent'
+    try {
+      const d = new Date(dateStr)
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+      })
+    } catch {
+      return 'Recent'
+    }
   }
 
   return (
@@ -36,7 +102,6 @@ function Balance() {
 
         {/* Header */}
         <section className="balance-header">
-
           <div>
             <p className="balance-label">
               CREATOR WALLET
@@ -58,19 +123,17 @@ function Balance() {
           >
             ← Back to Profile
           </button>
-
         </section>
 
         {/* Available Balance */}
         <section className="balance-card">
-
           <div>
             <p className="balance-card-label">
               Available Balance
             </p>
 
             <h2>
-              ₹{availableBalance.toLocaleString('en-IN')}
+              {loading ? '...' : `₹${availableBalance.toLocaleString('en-IN')}`}
             </h2>
 
             <p className="balance-subtext">
@@ -81,39 +144,39 @@ function Balance() {
           <div className="balance-wallet-icon">
             ₹
           </div>
-
         </section>
 
         {/* Stats */}
         <section className="balance-stats">
-
           <div className="balance-stat-card">
             <span>💰</span>
-
             <div>
               <p>Total Earnings</p>
-              <h3>₹28,750</h3>
+              <h3>
+                {loading ? '...' : `₹${wallet.totalEarnings.toLocaleString('en-IN')}`}
+              </h3>
             </div>
           </div>
 
           <div className="balance-stat-card">
             <span>📤</span>
-
             <div>
               <p>Total Withdrawn</p>
-              <h3>₹16,300</h3>
+              <h3>
+                {loading ? '...' : `₹${wallet.totalWithdrawn.toLocaleString('en-IN')}`}
+              </h3>
             </div>
           </div>
 
           <div className="balance-stat-card">
             <span>📈</span>
-
             <div>
               <p>This Month</p>
-              <h3>₹4,850</h3>
+              <h3>
+                {loading ? '...' : `₹${wallet.thisMonth.toLocaleString('en-IN')}`}
+              </h3>
             </div>
           </div>
-
         </section>
 
         {/* Content */}
@@ -121,9 +184,7 @@ function Balance() {
 
           {/* Transactions */}
           <div className="balance-transactions">
-
             <div className="balance-section-title">
-
               <div>
                 <p className="balance-small-label">
                   ACTIVITY
@@ -133,65 +194,42 @@ function Balance() {
                   Recent Transactions
                 </h2>
               </div>
-
             </div>
 
-            <div className="transaction-item">
-
-              <div className="transaction-icon">
-                ＋
+            {wallet.transactions.length === 0 ? (
+              <div className="py-8 text-center text-sm text-gray-500">
+                <p>No transactions yet.</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Sales, tips, and withdrawals will appear here automatically.
+                </p>
               </div>
+            ) : (
+              wallet.transactions.map((tx) => {
+                const isWithdrawal = tx.type === 'withdrawal'
+                return (
+                  <div key={tx._id || tx.id} className="transaction-item">
+                    <div className="transaction-icon">
+                      {isWithdrawal ? '−' : '＋'}
+                    </div>
 
-              <div>
-                <h4>Logo Design Project</h4>
-                <p>Today · Completed</p>
-              </div>
+                    <div>
+                      <h4>{tx.description || (isWithdrawal ? 'Withdrawal' : 'Earning')}</h4>
+                      <p>
+                        {formatTxDate(tx.createdAt)} · {tx.status ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Completed'}
+                      </p>
+                    </div>
 
-              <strong>
-                +₹2,500
-              </strong>
-
-            </div>
-
-            <div className="transaction-item">
-
-              <div className="transaction-icon">
-                ＋
-              </div>
-
-              <div>
-                <h4>Poster Design</h4>
-                <p>Yesterday · Completed</p>
-              </div>
-
-              <strong>
-                +₹1,800
-              </strong>
-
-            </div>
-
-            <div className="transaction-item">
-
-              <div className="transaction-icon">
-                −
-              </div>
-
-              <div>
-                <h4>Withdrawal</h4>
-                <p>05 Sep · Bank Transfer</p>
-              </div>
-
-              <strong className="withdrawal">
-                −₹5,000
-              </strong>
-
-            </div>
-
+                    <strong className={isWithdrawal ? 'withdrawal' : ''}>
+                      {isWithdrawal ? '−' : '+'}₹{(Number(tx.amount) || 0).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                )
+              })
+            )}
           </div>
 
           {/* Withdraw */}
           <div className="withdraw-card">
-
             <p className="balance-small-label">
               WITHDRAW
             </p>
@@ -212,6 +250,7 @@ function Balance() {
                 onClick={() => {
                   setShowWithdraw(true)
                   setMessage('')
+                  setIsError(false)
                 }}
               >
                 Withdraw Balance
@@ -220,7 +259,6 @@ function Balance() {
 
             {showWithdraw && (
               <div className="withdraw-form">
-
                 <label>
                   Withdrawal Amount
                 </label>
@@ -233,41 +271,41 @@ function Balance() {
                   onChange={(e) => {
                     setAmount(e.target.value)
                     setMessage('')
+                    setIsError(false)
                   }}
                   placeholder="Enter amount"
                 />
 
                 <div className="withdraw-actions">
-
                   <button
                     type="button"
+                    disabled={withdrawing}
                     onClick={handleWithdraw}
                   >
-                    Confirm Withdrawal
+                    {withdrawing ? 'Processing...' : 'Confirm Withdrawal'}
                   </button>
 
                   <button
                     type="button"
+                    disabled={withdrawing}
                     onClick={() => {
                       setShowWithdraw(false)
                       setAmount('')
                       setMessage('')
+                      setIsError(false)
                     }}
                   >
                     Cancel
                   </button>
-
                 </div>
-
               </div>
             )}
 
             {message && (
-              <p className="withdraw-message">
+              <p className={isError ? 'withdraw-message text-red-500' : 'withdraw-message'}>
                 {message}
               </p>
             )}
-
           </div>
 
         </section>

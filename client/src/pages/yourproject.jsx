@@ -1,18 +1,49 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function YourProject() {
   const navigate = useNavigate()
 
   const [projects, setProjects] = useState([])
   const [filter, setFilter] = useState('All')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      if (api.isAuthenticated()) {
+        const response = await api.getProjects({ mine: 'true' })
+        if (response && response.success && Array.isArray(response.data)) {
+          setProjects(response.data)
+          localStorage.setItem('craftloopProjects', JSON.stringify(response.data))
+          return
+        }
+      }
+
+      // Fallback to localStorage if unauthenticated or offline
+      const savedProjects = JSON.parse(
+        localStorage.getItem('craftloopProjects') || '[]'
+      )
+      setProjects(Array.isArray(savedProjects) ? savedProjects : [])
+    } catch (err) {
+      console.error('Failed to fetch projects from backend:', err)
+      const savedProjects = JSON.parse(
+        localStorage.getItem('craftloopProjects') || '[]'
+      )
+      setProjects(Array.isArray(savedProjects) ? savedProjects : [])
+      setError('Could not refresh projects from server. Showing local copy.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const savedProjects = JSON.parse(
-      localStorage.getItem('craftloopProjects') || '[]'
-    )
-
-    setProjects(Array.isArray(savedProjects) ? savedProjects : [])
+    fetchProjects()
   }, [])
 
   const filteredProjects =
@@ -38,16 +69,34 @@ function YourProject() {
     }
   }
 
-  const handleDelete = (id) => {
-    const updatedProjects = projects.filter(
-      (project) => project.id !== id
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm(
+      'Are you sure you want to delete this project?'
     )
+    if (!confirmDelete) return
 
-    setProjects(updatedProjects)
-    localStorage.setItem(
-      'craftloopProjects',
-      JSON.stringify(updatedProjects)
-    )
+    try {
+      setDeletingId(id)
+
+      if (api.isAuthenticated()) {
+        await api.deleteProject(id)
+      }
+
+      const updatedProjects = projects.filter(
+        (project) => (project._id || project.id) !== id
+      )
+
+      setProjects(updatedProjects)
+      localStorage.setItem(
+        'craftloopProjects',
+        JSON.stringify(updatedProjects)
+      )
+    } catch (err) {
+      console.error('Error deleting project:', err)
+      alert(err.message || 'Failed to delete project from server.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -90,8 +139,28 @@ function YourProject() {
         ))}
       </div>
 
+      {/* Error state */}
+      {error && (
+        <div className="mb-6 flex items-center justify-between rounded-xl bg-amber-50 p-4 text-sm text-amber-800 border border-amber-200">
+          <span>{error}</span>
+          <button
+            onClick={fetchProjects}
+            className="font-semibold text-amber-900 underline hover:text-amber-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Projects */}
-      {filteredProjects.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+          <p className="mt-3 text-sm font-medium text-gray-500">
+            Loading your projects...
+          </p>
+        </div>
+      ) : filteredProjects.length === 0 ? (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <div className="mb-4 text-5xl">📁</div>
 
@@ -112,101 +181,109 @@ function YourProject() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project) => (
-            <div
-              key={project.id}
-              className="overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-            >
+          {filteredProjects.map((project) => {
+            const projId = project._id || project.id
+            const displaySkills = Array.isArray(project.tags) && project.tags.length > 0
+              ? project.tags.join(', ')
+              : project.skills
 
-              {/* Image / Placeholder */}
-              <div className="flex h-44 items-center justify-center bg-purple-100">
-                {project.image ? (
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="text-5xl">🎨</span>
-                )}
-              </div>
+            return (
+              <div
+                key={projId}
+                className="overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+              >
 
-              {/* Content */}
-              <div className="p-5">
-
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
-                    {project.category}
-                  </span>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      project.status === 'Published'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}
-                  >
-                    {project.status}
-                  </span>
+                {/* Image / Placeholder */}
+                <div className="flex h-44 items-center justify-center bg-purple-100">
+                  {project.image ? (
+                    <img
+                      src={project.image}
+                      alt={project.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-5xl">🎨</span>
+                  )}
                 </div>
 
-                <h2 className="text-xl font-bold text-gray-900">
-                  {project.title}
-                </h2>
+                {/* Content */}
+                <div className="p-5">
 
-                <p className="mt-2 line-clamp-3 text-sm text-gray-500">
-                  {project.description}
-                </p>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                      {project.category || 'General'}
+                    </span>
 
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-gray-400">
-                    Type
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        project.status === 'Published'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      {project.status || 'Draft'}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {project.title}
+                  </h2>
+
+                  <p className="mt-2 line-clamp-3 text-sm text-gray-500">
+                    {project.description}
                   </p>
 
-                  <p className="mt-1 text-sm font-medium text-gray-700">
-                    {project.type}
-                  </p>
-                </div>
-
-                {project.skills && (
-                  <div className="mt-3">
+                  <div className="mt-4">
                     <p className="text-xs font-semibold uppercase text-gray-400">
-                      Skills
+                      Type
                     </p>
 
-                    <p className="mt-1 text-sm text-gray-600">
-                      {project.skills}
+                    <p className="mt-1 text-sm font-medium text-gray-700">
+                      {project.type || project.projectType || 'Project'}
                     </p>
                   </div>
-                )}
 
-                {/* Buttons */}
-                <div className="mt-5 flex gap-2">
-                  <button
-                    onClick={() => navigate('/create')}
-                    className="flex-1 rounded-lg border border-purple-200 px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50"
-                  >
-                    Edit
-                  </button>
+                  {displaySkills && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase text-gray-400">
+                        Skills
+                      </p>
 
-                  <button
-                    onClick={() => handleShare(project)}
-                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
-                  >
-                    Share
-                  </button>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {displaySkills}
+                      </p>
+                    </div>
+                  )}
 
-                  <button
-                    onClick={() => handleDelete(project.id)}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
+                  {/* Buttons */}
+                  <div className="mt-5 flex gap-2">
+                    <button
+                      onClick={() => navigate('/create', { state: { editProject: project } })}
+                      className="flex-1 rounded-lg border border-purple-200 px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => handleShare(project)}
+                      className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+                    >
+                      Share
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(projId)}
+                      disabled={deletingId === projId}
+                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deletingId === projId ? '...' : 'Delete'}
+                    </button>
+                  </div>
+
                 </div>
-
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

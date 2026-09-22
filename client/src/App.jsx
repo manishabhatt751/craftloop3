@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 // Creator layout
 import AppLayout from './Components/AppLayout'
+import ProtectedRoute from './Components/ProtectedRoute'
 
 // Creator pages
 import Home from './pages/Home'
@@ -68,7 +69,13 @@ function App() {
         {/* =========================
             CREATOR SIDE
         ========================= */}
-        <Route element={<AppLayout />}>
+        <Route
+          element={
+            <ProtectedRoute allowedRole="creator">
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
 
           <Route
             path="/dashboard"
@@ -103,6 +110,11 @@ function App() {
           <Route
             path="/edit-profile"
             element={<EditProfile />}
+          />
+
+          <Route
+            path="/editprofile"
+            element={<Navigate to="/edit-profile" replace />}
           />
 
           <Route
@@ -141,6 +153,16 @@ function App() {
           />
 
           <Route
+            path="/course-details/:courseId"
+            element={<CourseDetails />}
+          />
+
+          <Route
+            path="/your-courses"
+            element={<Navigate to="/course-details" replace />}
+          />
+
+          <Route
             path="/setting"
             element={<Setting />}
           />
@@ -151,7 +173,13 @@ function App() {
         {/* =========================
             VIEWER SIDE
         ========================= */}
-        <Route element={<ViewerLayout />}>
+        <Route
+          element={
+            <ProtectedRoute allowedRole="viewer">
+              <ViewerLayout />
+            </ProtectedRoute>
+          }
+        >
 
           <Route
             path="/viewerhome"
@@ -160,6 +188,11 @@ function App() {
 
           <Route
             path="/viewerexplore"
+            element={<ViewerExplore />}
+          />
+
+          <Route
+            path="/explore"
             element={<ViewerExplore />}
           />
 
@@ -201,6 +234,21 @@ function App() {
           <Route
             path="/viewerprofile"
             element={<ViewerProfile />}
+          />
+
+          <Route
+            path="/viewereditprofile"
+            element={<EditProfile />}
+          />
+
+          <Route
+            path="/viewer/edit-profile"
+            element={<Navigate to="/viewereditprofile" replace />}
+          />
+
+          <Route
+            path="/viewer/profile"
+            element={<Navigate to="/viewerprofile" replace />}
           />
 
           <Route

@@ -37,8 +37,12 @@ function initSocket(httpServer) {
         return next(new Error("Authentication error: No token provided"));
       }
 
-      const secret = process.env.JWT_SECRET || "craftloop_jwt_secret_key_2026";
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return next(new Error("Authentication error: JWT_SECRET not configured"));
+      }
       const decoded = jwt.verify(token, secret);
+
 
       const user = await User.findById(decoded.id).select("-password");
       if (!user) {

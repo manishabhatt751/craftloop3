@@ -23,7 +23,13 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    const secret = process.env.JWT_SECRET || "craftloop_jwt_secret_key_2026";
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({
+        success: false,
+        message: "JWT configuration error on server.",
+      });
+    }
     const decoded = jwt.verify(token, secret);
 
     const user = await User.findById(decoded.id).select("-password");
@@ -44,6 +50,7 @@ const protect = async (req, res, next) => {
     });
   }
 };
+
 
 /**
  * Restrict to specific roles
@@ -79,7 +86,8 @@ const optionalAuth = async (req, res, next) => {
   }
 
   try {
-    const secret = process.env.JWT_SECRET || "craftloop_jwt_secret_key_2026";
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return next();
     const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.id).select("-password");
     if (user) {
@@ -88,6 +96,7 @@ const optionalAuth = async (req, res, next) => {
   } catch (err) {
     // Ignore invalid token on optional auth
   }
+
 
   next();
 };

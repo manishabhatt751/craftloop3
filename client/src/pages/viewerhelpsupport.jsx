@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import api from '../services/api'
 
 function ViewerHelpSupport() {
   const [openFaq, setOpenFaq] = useState(null)
   const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
   const faqs = [
     {
@@ -31,14 +34,30 @@ function ViewerHelpSupport() {
     },
   ]
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!message.trim()) {
       alert('Please enter your message.')
       return
     }
 
-    alert('Your support request has been submitted!')
-    setMessage('')
+    try {
+      setSubmitting(true)
+      const res = await api.createSupportTicket({
+        subject: 'Viewer Support Inquiry',
+        message: message.trim(),
+      })
+
+      if (res && res.success) {
+        setSubmitted(true)
+        setMessage('')
+      } else {
+        alert(res?.message || 'Failed to submit request. Please try again.')
+      }
+    } catch (err) {
+      alert(err?.message || 'Failed to submit request. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -165,6 +184,12 @@ function ViewerHelpSupport() {
           Tell us what you need help with.
         </p>
 
+        {submitted && (
+          <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700">
+            Your support request has been submitted successfully. Our team will review your inquiry shortly.
+          </div>
+        )}
+
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -175,10 +200,11 @@ function ViewerHelpSupport() {
 
         <button
           type="button"
+          disabled={submitting}
           onClick={handleSubmit}
-          className="mt-4 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+          className="mt-4 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50"
         >
-          Submit Request
+          {submitting ? 'Submitting...' : 'Submit Request'}
         </button>
 
       </section>

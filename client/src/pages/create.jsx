@@ -1,11 +1,16 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import api from '../services/api'
 
 function Create() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [showCourseForm, setShowCourseForm] = useState(false)
+  const [editingProjectId, setEditingProjectId] = useState(null)
+  const [submittingProject, setSubmittingProject] = useState(false)
+  const [submittingCourse, setSubmittingCourse] = useState(false)
 
   // ---------------- PROJECT FORM ----------------
 
@@ -18,6 +23,25 @@ function Create() {
     image: '',
   })
 
+  useEffect(() => {
+    if (location.state?.editProject) {
+      const p = location.state.editProject
+      setEditingProjectId(p._id || p.id)
+      setProjectForm({
+        title: p.title || '',
+        category: p.category || '',
+        projectType: p.projectType || p.type || 'Project',
+        description: p.description || '',
+        skills: Array.isArray(p.tags) && p.tags.length > 0
+          ? p.tags.join(', ')
+          : (p.skills || ''),
+        image: p.image || '',
+      })
+      setShowProjectForm(true)
+      setShowCourseForm(false)
+    }
+  }, [location.state])
+
   const handleProjectChange = (e) => {
     const { name, value } = e.target
 
@@ -27,29 +51,32 @@ function Create() {
     }))
   }
 
-  const handleProjectImage = (e) => {
+  const handleProjectImage = async (e) => {
     const file = e.target.files?.[0]
-
     if (!file) return
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Please choose an image smaller than 2 MB.')
+    const FIVE_GB = 5000 * 1024 * 1024
+    if (file.size > FIVE_GB) {
+      alert('File exceeds the 5 GB limit. Maximum file size: 5 GB.')
       return
     }
 
-    const reader = new FileReader()
-
-    reader.onloadend = () => {
-      setProjectForm((previous) => ({
-        ...previous,
-        image: reader.result,
-      }))
+    try {
+      const res = await api.uploadMedia(file, 'craftloop/projects')
+      if (res && res.success && res.url) {
+        setProjectForm((previous) => ({
+          ...previous,
+          image: res.url,
+        }))
+        return
+      }
+    } catch (err) {
+      console.error('Project media upload failed:', err)
+      alert(err.message || 'Media upload failed. Please try again.')
     }
-
-    reader.readAsDataURL(file)
   }
 
-  const handleProjectSubmit = (e) => {
+  const handleProjectSubmit = async (e) => {
     e.preventDefault()
 
     if (
@@ -62,54 +89,89 @@ function Create() {
       return
     }
 
-    const savedProjects = JSON.parse(
-      localStorage.getItem('craftloopProjects') || '[]'
-    )
+    try {
+      setSubmittingProject(true)
+      let backendProject = null
+      const payload = {
+        title: projectForm.title,
+        category: projectForm.category,
+        type:
+          projectForm.projectType === 'Service'
+            ? 'Service'
+            : 'Project',
+        projectType: projectForm.projectType,
+        description: projectForm.description,
+        skills: projectForm.skills || '',
+        status: 'Published',
+        tags: projectForm.skills
+          ? projectForm.skills.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        image: projectForm.image || '',
+      }
 
-    const projects = Array.isArray(savedProjects)
-      ? savedProjects
-      : []
+      if (api.isAuthenticated()) {
+        try {
+          if (editingProjectId) {
+            const res = await api.updateProject(editingProjectId, payload)
+            if (res && res.data) {
+              backendProject = res.data
+            }
+          } else {
+            const res = await api.createProject(payload)
+            if (res && res.data) {
+              backendProject = res.data
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Backend project error:', apiErr)
+        }
+      }
 
-    const newProject = {
-      id: Date.now(),
-      title: projectForm.title,
-      category: projectForm.category,
-      type:
-        projectForm.projectType === 'Service'
-          ? 'Service'
-          : 'Project',
-      projectType: projectForm.projectType,
-      description: projectForm.description,
-      skills: projectForm.skills,
-      image: projectForm.image,
-      status: 'Published',
-      createdAt: new Date().toISOString(),
+      const savedProjects = JSON.parse(
+        localStorage.getItem('craftloopProjects') || '[]'
+      )
+      const projects = Array.isArray(savedProjects) ? savedProjects : []
+      const finalProject = backendProject || {
+        id: editingProjectId || Date.now(),
+        ...payload,
+        createdAt: new Date().toISOString(),
+      }
+
+      const updatedProjects = editingProjectId
+        ? projects.map((p) =>
+            (p._id || p.id) === editingProjectId ? finalProject : p
+          )
+        : [finalProject, ...projects]
+
+      localStorage.setItem(
+        'craftloopProjects',
+        JSON.stringify(updatedProjects)
+      )
+
+      alert(
+        editingProjectId
+          ? 'Project updated successfully!'
+          : 'Project saved successfully!'
+      )
+
+      setProjectForm({
+        title: '',
+        category: '',
+        projectType: '',
+        description: '',
+        skills: '',
+        image: '',
+      })
+      setEditingProjectId(null)
+      setShowProjectForm(false)
+
+      navigate('/your-project')
+    } catch (err) {
+      console.error('Project submit error:', err)
+      alert(err.message || 'Error saving project.')
+    } finally {
+      setSubmittingProject(false)
     }
-
-    const updatedProjects = [
-      ...projects,
-      newProject,
-    ]
-
-    localStorage.setItem(
-      'craftloopProjects',
-      JSON.stringify(updatedProjects)
-    )
-
-    alert('Project saved successfully!')
-
-    setProjectForm({
-      title: '',
-      category: '',
-      projectType: '',
-      description: '',
-      skills: '',
-      image: '',
-    })
-
-    setShowProjectForm(false)
-
-    navigate('/your-project')
   }
 
   // ---------------- COURSE FORM ----------------
@@ -131,29 +193,32 @@ function Create() {
     }))
   }
 
-  const handleCourseThumbnail = (e) => {
+  const handleCourseThumbnail = async (e) => {
     const file = e.target.files?.[0]
-
     if (!file) return
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Please choose an image smaller than 2 MB.')
+    const FIVE_GB = 5000 * 1024 * 1024
+    if (file.size > FIVE_GB) {
+      alert('File exceeds the 5 GB limit. Maximum file size: 5 GB.')
       return
     }
 
-    const reader = new FileReader()
-
-    reader.onloadend = () => {
-      setCourseForm((previous) => ({
-        ...previous,
-        thumbnail: reader.result,
-      }))
+    try {
+      const res = await api.uploadMedia(file, 'craftloop/courses')
+      if (res && res.success && res.url) {
+        setCourseForm((previous) => ({
+          ...previous,
+          thumbnail: res.url,
+        }))
+        return
+      }
+    } catch (err) {
+      console.error('Course thumbnail upload failed:', err)
+      alert(err.message || 'Thumbnail upload failed. Please try again.')
     }
-
-    reader.readAsDataURL(file)
   }
 
-  const handleCourseSubmit = (e) => {
+  const handleCourseSubmit = async (e) => {
     e.preventDefault()
 
     if (
@@ -166,39 +231,65 @@ function Create() {
       return
     }
 
-    const savedCourses = JSON.parse(
-      localStorage.getItem('craftloopCourses') || '[]'
-    )
+    try {
+      setSubmittingCourse(true)
+      let backendCourse = null
+      const payload = {
+        title: courseForm.title,
+        category: courseForm.category,
+        level: courseForm.level,
+        description: courseForm.description,
+        thumbnail: courseForm.thumbnail || '',
+        status: 'Published',
+        lessons: [],
+      }
 
-    const courses = Array.isArray(savedCourses)
-      ? savedCourses
-      : []
+      if (api.isAuthenticated()) {
+        try {
+          const res = await api.createCourse(payload)
+          if (res && res.data) {
+            backendCourse = res.data
+          }
+        } catch (apiErr) {
+          console.warn('Backend course creation error:', apiErr)
+        }
+      }
 
-    const newCourse = {
-      id: Date.now(),
-      title: courseForm.title,
-      category: courseForm.category,
-      level: courseForm.level,
-      description: courseForm.description,
-      thumbnail: courseForm.thumbnail,
-      status: 'Published',
-      lessons: [],
-      createdAt: new Date().toISOString(),
+      const savedCourses = JSON.parse(
+        localStorage.getItem('craftloopCourses') || '[]'
+      )
+      const courses = Array.isArray(savedCourses)
+        ? savedCourses
+        : []
+
+      const newCourse = backendCourse || {
+        id: Date.now(),
+        ...payload,
+        createdAt: new Date().toISOString(),
+      }
+
+      const updatedCourses = [
+        newCourse,
+        ...courses.filter(
+          (c) => (c._id || c.id) !== (newCourse._id || newCourse.id)
+        ),
+      ]
+
+      localStorage.setItem(
+        'craftloopCourses',
+        JSON.stringify(updatedCourses)
+      )
+
+      alert('Course saved successfully!')
+
+      const targetId = newCourse._id || newCourse.id
+      navigate(`/course-details?courseId=${targetId}`)
+    } catch (err) {
+      console.error('Course submit error:', err)
+      alert(err.message || 'Error creating course.')
+    } finally {
+      setSubmittingCourse(false)
     }
-
-    const updatedCourses = [
-      ...courses,
-      newCourse,
-    ]
-
-    localStorage.setItem(
-      'craftloopCourses',
-      JSON.stringify(updatedCourses)
-    )
-
-    alert('Course saved successfully!')
-
-    navigate('/course-details')
   }
 
   return (
@@ -447,18 +538,18 @@ function Create() {
                       </div>
 
                       <p className="font-semibold text-gray-700">
-                        Click to upload project image
+                        Click to upload project media
                       </p>
 
                       <p className="mt-1 text-sm text-gray-400">
-                        PNG, JPG or WEBP — Max 2 MB
+                        Upload files up to 5 GB (Maximum file size: 5 GB)
                       </p>
                     </>
                   )}
 
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/*,video/*"
                     onChange={handleProjectImage}
                     className="hidden"
                   />
@@ -640,18 +731,18 @@ function Create() {
                       </div>
 
                       <p className="font-semibold text-gray-700">
-                        Click to upload course thumbnail
+                        Click to upload course thumbnail / media
                       </p>
 
                       <p className="mt-1 text-sm text-gray-400">
-                        PNG, JPG or WEBP — Max 2 MB
+                        Upload files up to 5 GB (Maximum file size: 5 GB)
                       </p>
                     </>
                   )}
 
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/*,video/*"
                     onChange={handleCourseThumbnail}
                     className="hidden"
                   />

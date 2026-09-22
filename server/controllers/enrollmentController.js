@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const { Enrollment, Course, User } = require("../models");
+const { createNotification } = require("./notificationController");
+const { recordCredit } = require("./walletController");
 
 /**
  * @route   POST /api/enrollments/:courseId
@@ -65,6 +67,29 @@ const enrollInCourse = async (req, res) => {
       select: "title category level thumbnail price lessons duration",
       populate: { path: "creator", select: "name avatar email" },
     });
+
+    // Notify creator of new enrollment and credit wallet if course has a price
+    if (course.creator && course.creator.toString() !== req.user._id.toString()) {
+      createNotification({
+        recipient: course.creator,
+        sender: req.user._id,
+        type: "course",
+        title: "New student enrolled!",
+        message: `${req.user.name} just enrolled in "${course.title}".`,
+        relatedId: course._id,
+        relatedType: "Course",
+      });
+
+      if (course.price && Number(course.price) > 0) {
+        recordCredit({
+          userId: course.creator,
+          amount: Number(course.price),
+          type: "course_sale",
+          description: `Course enrollment: ${course.title}`,
+          referenceId: String(course._id),
+        }).catch((err) => console.error("Error crediting creator wallet:", err));
+      }
+    }
 
     res.status(201).json({
       success: true,

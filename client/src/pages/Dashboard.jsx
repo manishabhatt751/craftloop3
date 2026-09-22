@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function Dashboard() {
   const navigate = useNavigate()
@@ -12,6 +13,10 @@ function Dashboard() {
     const savedProfile = JSON.parse(
       localStorage.getItem('craftloopCreatorProfile') || 'null'
     )
+    const storedUser = JSON.parse(
+      localStorage.getItem('craftloop_user') || 'null'
+    )
+    setProfile(savedProfile || storedUser)
 
     const savedProjects = JSON.parse(
       localStorage.getItem('craftloopProjects') || '[]'
@@ -21,13 +26,26 @@ function Dashboard() {
       localStorage.getItem('craftloopCourses') || '[]'
     )
 
-    setProfile(savedProfile)
     setProjects(
       Array.isArray(savedProjects) ? savedProjects : []
     )
     setCourses(
       Array.isArray(savedCourses) ? savedCourses : []
     )
+
+    if (api.isAuthenticated()) {
+      Promise.all([
+        api.getProjects({ mine: 'true' }).catch(() => null),
+        api.getCourses({ mine: 'true' }).catch(() => null),
+      ]).then(([projRes, courseRes]) => {
+        if (projRes && projRes.success && Array.isArray(projRes.data) && projRes.data.length > 0) {
+          setProjects(projRes.data)
+        }
+        if (courseRes && courseRes.success && Array.isArray(courseRes.data) && courseRes.data.length > 0) {
+          setCourses(courseRes.data)
+        }
+      })
+    }
   }, [])
 
   const creatorName = profile?.name || 'Creator'

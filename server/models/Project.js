@@ -40,6 +40,22 @@ const projectSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    type: {
+      type: String,
+      default: "Project",
+    },
+    projectType: {
+      type: String,
+      default: "Project",
+    },
+    skills: {
+      type: String,
+      default: "",
+    },
+    price: {
+      type: Number,
+      default: 0,
+    },
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

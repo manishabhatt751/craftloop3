@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 
 const defaultPosts = [
   {
-    id: 1,
+    id: '1',
     name: 'Maya Creative',
     username: 'mayacreative',
     role: 'Graphic Designer',
@@ -18,14 +19,14 @@ const defaultPosts = [
     saved: false,
     commentsList: [
       {
-        id: 101,
+        id: '101',
         author: 'Arjun Sharma',
         username: 'arjuncreates',
         time: '1 hour ago',
         text: 'The gradient transitions are super clean! What software did you use?',
       },
       {
-        id: 102,
+        id: '102',
         author: 'Sarah Studio',
         username: 'sarahstudio',
         time: '30 mins ago',
@@ -34,7 +35,7 @@ const defaultPosts = [
     ],
   },
   {
-    id: 2,
+    id: '2',
     name: 'Arjun Sharma',
     username: 'arjuncreates',
     role: 'UI/UX Designer',
@@ -49,29 +50,13 @@ const defaultPosts = [
     saved: false,
     commentsList: [
       {
-        id: 201,
+        id: '201',
         author: 'Maya Creative',
         username: 'mayacreative',
         time: '3 hours ago',
         text: '100% Figma for collaborative design systems!',
       },
     ],
-  },
-  {
-    id: 3,
-    name: 'Sarah Studio',
-    username: 'sarahstudio',
-    role: 'Content Creator',
-    category: 'Content',
-    time: 'Yesterday',
-    content:
-      'Small reminder for every creator: consistency matters more than perfection. Keep creating, keep learning and keep sharing.',
-    image: null,
-    likes: 42,
-    comments: 0,
-    liked: false,
-    saved: false,
-    commentsList: [],
   },
 ]
 
@@ -88,11 +73,76 @@ const safeGetJSON = (key, fallback) => {
   }
 }
 
+const formatTimeAgo = (dateStr) => {
+  if (!dateStr) return 'Just now'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return String(dateStr)
+  const seconds = Math.floor((new Date() - date) / 1000)
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return date.toLocaleDateString()
+}
+
+const normalizePost = (p, currentUserId) => {
+  const authorObj = typeof p.author === 'object' && p.author !== null ? p.author : null
+  const authorName = p.authorName || authorObj?.name || 'Creator'
+  const authorUsername = authorObj?.email
+    ? authorObj.email.split('@')[0]
+    : authorName.toLowerCase().replace(/\s+/g, '')
+  const authorRole =
+    p.authorRole || authorObj?.title || (authorObj?.role === 'creator' ? 'Creator' : 'Member')
+  const authorId = authorObj?._id || p.author
+  const tags = Array.isArray(p.tags) ? p.tags : []
+  const category = tags[0] || 'Design'
+  const likesArr = Array.isArray(p.likes) ? p.likes : []
+  const isLiked = currentUserId
+    ? likesArr.some((id) => (id?._id || id)?.toString() === currentUserId?.toString())
+    : false
+
+  return {
+    id: p._id || p.id,
+    _id: p._id || p.id,
+    authorId: authorId ? authorId.toString() : null,
+    name: authorName,
+    username: authorUsername,
+    role: authorRole,
+    category,
+    time: formatTimeAgo(p.createdAt),
+    content: p.content,
+    image: p.image || null,
+    likes: likesArr.length,
+    liked: isLiked,
+    saved: false,
+    comments: (p.comments || []).length,
+    commentsList: (p.comments || []).map((c) => ({
+      id: c._id || c.id || Math.random().toString(),
+      authorId: (c.author?._id || c.author)?.toString(),
+      author:
+        c.authorName ||
+        (typeof c.author === 'object' ? c.author?.name : 'Community Member') ||
+        'Community Member',
+      username: (c.authorName || 'user').toLowerCase().replace(/\s+/g, ''),
+      time: formatTimeAgo(c.createdAt),
+      text: c.text,
+    })),
+  }
+}
+
 function Community() {
   const navigate = useNavigate()
 
+  const currentUser = useMemo(() => safeGetJSON('craftloop_user', null), [])
+  const currentUserId = currentUser?._id || currentUser?.id
+
   // Main state
   const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const [showCreatePost, setShowCreatePost] = useState(false)
@@ -152,15 +202,30 @@ function Community() {
     }, 3800)
   }
 
+  // Fetch live posts from MongoDB Atlas
+  const fetchPosts = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await api.getCommunityPosts()
+      if (res && res.success && Array.isArray(res.data)) {
+        const normalized = res.data.map((p) => normalizePost(p, currentUserId))
+        setPosts(normalized)
+      } else {
+        setPosts([])
+      }
+    } catch (err) {
+      console.error('Error fetching community posts from MongoDB Atlas:', err)
+      setError('Unable to load live community posts from server.')
+      showToast('Failed to load posts from server.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Load initial posts safely
   useEffect(() => {
-    const savedPosts = safeGetJSON('craftloopCommunityPosts', null)
-    if (Array.isArray(savedPosts)) {
-      setPosts(savedPosts)
-    } else {
-      setPosts(defaultPosts)
-      localStorage.setItem('craftloopCommunityPosts', JSON.stringify(defaultPosts))
-    }
+    fetchPosts()
 
     // Check profile
     const profile = safeGetJSON('craftloopCreatorProfile', null)
@@ -189,16 +254,6 @@ function Community() {
       return matchesCategory && matchesSearch
     })
   }, [posts, search, activeCategory])
-
-  const savePosts = (updatedPosts) => {
-    setPosts(updatedPosts)
-    try {
-      localStorage.setItem('craftloopCommunityPosts', JSON.stringify(updatedPosts))
-    } catch (err) {
-      console.error('Failed to save posts to localStorage:', err)
-      showToast('Storage quota exceeded. Some posts may not persist.', 'warning')
-    }
-  }
 
   // Safe initial generator to prevent undefined.toUpperCase() runtime crashes
   const getInitials = (name) => {
@@ -234,38 +289,38 @@ function Community() {
     showToast('Creator permission granted! You can now publish posts.', 'success')
   }
 
-  // Image file handler for post creation
-  const handleImageFileChange = (e) => {
+  // Media file handler for post creation
+  const handleImageFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select a valid image file (PNG, JPG, WEBP).', 'error')
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      showToast('Please select a valid image or video file.', 'error')
       return
     }
 
-    // Limit to 2MB for localStorage safety
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('Image size should be under 2MB.', 'warning')
+    const FIVE_GB = 5000 * 1024 * 1024
+    if (file.size > FIVE_GB) {
+      showToast('File exceeds the 5 GB limit. Maximum file size: 5 GB.', 'warning')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const result = event.target?.result
-      if (result) {
-        setImagePreview(result)
-        setPostForm((prev) => ({ ...prev, image: result }))
+    // Instant local object URL preview without base64
+    const objectUrl = URL.createObjectURL(file)
+    setImagePreview(objectUrl)
+
+    try {
+      const res = await api.uploadMedia(file, 'craftloop/community')
+      if (res && res.success && res.url) {
+        setPostForm((prev) => ({ ...prev, image: res.url }))
       }
+    } catch (err) {
+      console.warn('Community media upload notice:', err.message)
     }
-    reader.onerror = () => {
-      showToast('Error reading image file.', 'error')
-    }
-    reader.readAsDataURL(file)
   }
 
-  // Handle Post Creation
-  const handleCreatePost = (e) => {
+  // Handle Post Creation with MongoDB Atlas
+  const handleCreatePost = async (e) => {
     e.preventDefault()
 
     if (!postForm.content.trim()) {
@@ -284,61 +339,79 @@ function Community() {
       return
     }
 
-    const newPost = {
-      id: Date.now(),
-      name: creatorProfile?.name || 'Alex Morgan',
-      username: creatorProfile?.username || 'alexmorgan',
-      role: creatorProfile?.profession || 'Creator',
-      category: postForm.category,
-      time: 'Just now',
-      content: postForm.content.trim(),
-      image: postForm.image || null,
-      likes: 0,
-      comments: 0,
-      liked: false,
-      saved: false,
-      commentsList: [],
+    try {
+      const res = await api.createCommunityPost({
+        content: postForm.content.trim(),
+        category: postForm.category,
+        tags: [postForm.category],
+        image: postForm.image || '',
+      })
+
+      if (res && res.success && res.data) {
+        const created = normalizePost(res.data, currentUserId)
+        setPosts((prev) => [created, ...prev])
+        setPostForm({
+          content: '',
+          category: 'Design',
+          image: '',
+        })
+        setImagePreview('')
+        setShowCreatePost(false)
+        showToast('Post published successfully to MongoDB Atlas!', 'success')
+      }
+    } catch (err) {
+      console.error('Failed to create community post:', err)
+      showToast(err.message || 'Error publishing post.', 'error')
+    }
+  }
+
+  // Toggle Like with MongoDB Atlas
+  const toggleLike = async (id) => {
+    if (!api.isAuthenticated()) {
+      showToast('Please log in to like posts.', 'warning')
+      return
     }
 
-    savePosts([newPost, ...posts])
-
-    setPostForm({
-      content: '',
-      category: 'Design',
-      image: '',
-    })
-    setImagePreview('')
-    setShowCreatePost(false)
-    showToast('Post published successfully!', 'success')
-  }
-
-  // Toggle Like
-  const toggleLike = (id) => {
-    const updatedPosts = posts.map((post) => {
-      if (post.id !== id) return post
-      return {
-        ...post,
-        liked: !post.liked,
-        likes: post.liked ? Math.max(0, post.likes - 1) : post.likes + 1,
+    try {
+      const res = await api.likeCommunityPost(id)
+      if (res && res.success) {
+        setPosts((prev) =>
+          prev.map((post) => {
+            if (post.id !== id && post._id !== id) return post
+            return {
+              ...post,
+              liked: res.liked !== undefined ? res.liked : !post.liked,
+              likes:
+                res.likesCount !== undefined
+                  ? res.likesCount
+                  : post.liked
+                  ? Math.max(0, post.likes - 1)
+                  : post.likes + 1,
+            }
+          })
+        )
       }
-    })
-    savePosts(updatedPosts)
+    } catch (err) {
+      console.error('Error toggling like:', err)
+      showToast(err.message || 'Error updating like.', 'error')
+    }
   }
 
-  // Toggle Save
+  // Toggle Save (Local state collection)
   const toggleSave = (id) => {
-    const updatedPosts = posts.map((post) => {
-      if (post.id !== id) return post
-      const newSaved = !post.saved
-      if (newSaved) {
-        showToast('Post saved to your collection!', 'success')
-      }
-      return {
-        ...post,
-        saved: newSaved,
-      }
-    })
-    savePosts(updatedPosts)
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== id && post._id !== id) return post
+        const newSaved = !post.saved
+        if (newSaved) {
+          showToast('Post saved to your collection!', 'success')
+        }
+        return {
+          ...post,
+          saved: newSaved,
+        }
+      })
+    )
   }
 
   // Share with clipboard permission handling
@@ -367,7 +440,6 @@ function Community() {
         await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
         showToast('Post link and content copied to clipboard!', 'success')
       } catch (err) {
-        // Clipboard permission denied or blocked
         console.error('Clipboard permission error:', err)
         setPermissionModal({
           isOpen: true,
@@ -378,7 +450,6 @@ function Community() {
         })
       }
     } else {
-      // Fallback for non-secure contexts
       try {
         const textarea = document.createElement('textarea')
         textarea.value = `${shareText}\n${shareUrl}`
@@ -406,52 +477,41 @@ function Community() {
     }))
   }
 
-  // Submit comment
-  const handleAddComment = (postId) => {
+  // Submit comment with MongoDB Atlas
+  const handleAddComment = async (postId) => {
     const text = (commentInputs[postId] || '').trim()
     if (!text) {
       showToast('Please type a comment first.', 'warning')
       return
     }
 
-    const currentAuthor =
-      userRole === 'creator'
-        ? creatorProfile?.name || 'Alex Morgan'
-        : 'Viewer User'
-
-    const currentUsername =
-      userRole === 'creator'
-        ? creatorProfile?.username || 'alexmorgan'
-        : 'viewer'
-
-    const newComment = {
-      id: Date.now(),
-      author: currentAuthor,
-      username: currentUsername,
-      time: 'Just now',
-      text,
+    if (!api.isAuthenticated()) {
+      showToast('Please log in to comment.', 'warning')
+      return
     }
 
-    const updatedPosts = posts.map((p) => {
-      if (p.id !== postId) return p
-      const updatedList = [...(p.commentsList || []), newComment]
-      return {
-        ...p,
-        comments: updatedList.length,
-        commentsList: updatedList,
+    try {
+      const res = await api.commentCommunityPost(postId, text)
+      if (res && res.success && res.data) {
+        const updatedPost = normalizePost(res.data, currentUserId)
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId || p._id === postId ? updatedPost : p))
+        )
+        setCommentInputs((prev) => ({ ...prev, [postId]: '' }))
+        showToast('Comment added!', 'success')
       }
-    })
-
-    savePosts(updatedPosts)
-    setCommentInputs((prev) => ({ ...prev, [postId]: '' }))
-    showToast('Comment added!', 'success')
+    } catch (err) {
+      console.error('Error adding comment:', err)
+      showToast(err.message || 'Error adding comment.', 'error')
+    }
   }
 
   // Delete Post Permission Verification
   const requestDeletePost = (post) => {
     const isOwn =
+      (currentUserId && post.authorId && currentUserId.toString() === post.authorId.toString()) ||
       post.username === creatorProfile?.username ||
-      (userRole === 'creator' && post.username === 'alexmorgan')
+      (currentUser?.role === 'creator' && post.name === currentUser?.name)
 
     if (!isOwn) {
       setPermissionModal({
@@ -467,16 +527,30 @@ function Community() {
     // Open on-screen confirmation modal
     setDeleteDialog({
       isOpen: true,
-      postId: post.id,
+      postId: post.id || post._id,
     })
   }
 
-  const confirmDeletePost = () => {
-    if (!deleteDialog.postId) return
-    const updated = posts.filter((p) => p.id !== deleteDialog.postId)
-    savePosts(updated)
-    setDeleteDialog({ isOpen: false, postId: null })
-    showToast('Post deleted successfully.', 'info')
+  const confirmDeletePost = async () => {
+    const targetId = deleteDialog.postId
+    if (!targetId) return
+
+    try {
+      const res = await api.deleteCommunityPost(targetId)
+      if (res && res.success) {
+        setPosts((prev) => prev.filter((p) => p.id !== targetId && p._id !== targetId))
+        setDeleteDialog({ isOpen: false, postId: null })
+        showToast('Post deleted successfully from MongoDB Atlas.', 'info')
+      }
+    } catch (err) {
+      console.error('Error deleting post:', err)
+      setDeleteDialog({ isOpen: false, postId: null })
+      if (err.status === 403) {
+        showToast('Not authorized to delete this post.', 'error')
+      } else {
+        showToast(err.message || 'Error deleting post.', 'error')
+      }
+    }
   }
 
   return (
@@ -715,7 +789,24 @@ function Community() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
         {/* Feed Column */}
         <div className="space-y-5">
-          {filteredPosts.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-purple-100 bg-white p-12 text-center shadow-sm">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-600 border-t-transparent" />
+              <p className="mt-4 text-sm font-semibold text-gray-600">
+                Loading community discussions from MongoDB Atlas...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="rounded-3xl border border-red-100 bg-white p-8 text-center shadow-sm">
+              <p className="text-sm font-semibold text-red-600">{error}</p>
+              <button
+                onClick={fetchPosts}
+                className="mt-4 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-purple-700"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : filteredPosts.length === 0 ? (
             <div className="rounded-2xl border border-purple-100 bg-white p-12 text-center shadow-sm">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-2xl">
                 🔎
@@ -739,16 +830,18 @@ function Community() {
             </div>
           ) : (
             filteredPosts.map((post) => {
+              const currentPostId = post.id || post._id
               const isOwnPost =
+                (currentUserId && post.authorId && currentUserId.toString() === post.authorId.toString()) ||
                 post.username === creatorProfile?.username ||
                 (userRole === 'creator' && post.username === 'alexmorgan')
 
-              const isCommentsOpen = Boolean(expandedComments[post.id])
+              const isCommentsOpen = Boolean(expandedComments[currentPostId])
               const postComments = post.commentsList || []
 
               return (
                 <article
-                  key={post.id}
+                  key={currentPostId}
                   className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm transition hover:shadow-md"
                 >
                   {/* Author Header */}
@@ -827,7 +920,7 @@ function Community() {
                   {/* Action Buttons */}
                   <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
                     <button
-                      onClick={() => toggleLike(post.id)}
+                      onClick={() => toggleLike(currentPostId)}
                       className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                         post.liked
                           ? 'bg-purple-100 text-purple-700'
@@ -839,7 +932,7 @@ function Community() {
                     </button>
 
                     <button
-                      onClick={() => toggleComments(post.id)}
+                      onClick={() => toggleComments(currentPostId)}
                       className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                         isCommentsOpen
                           ? 'bg-purple-50 text-purple-700'
@@ -859,7 +952,7 @@ function Community() {
                     </button>
 
                     <button
-                      onClick={() => toggleSave(post.id)}
+                      onClick={() => toggleSave(currentPostId)}
                       className={`ml-auto flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                         post.saved
                           ? 'bg-purple-100 text-purple-700'
@@ -882,15 +975,15 @@ function Community() {
                       <div className="mt-3 flex gap-2">
                         <input
                           type="text"
-                          value={commentInputs[post.id] || ''}
+                          value={commentInputs[currentPostId] || ''}
                           onChange={(e) =>
                             setCommentInputs((prev) => ({
                               ...prev,
-                              [post.id]: e.target.value,
+                              [currentPostId]: e.target.value,
                             }))
                           }
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddComment(post.id)
+                            if (e.key === 'Enter') handleAddComment(currentPostId)
                           }}
                           placeholder="Write a constructive comment..."
                           className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:bg-white"
@@ -898,7 +991,7 @@ function Community() {
 
                         <button
                           type="button"
-                          onClick={() => handleAddComment(post.id)}
+                          onClick={() => handleAddComment(currentPostId)}
                           className="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 active:scale-95"
                         >
                           Reply

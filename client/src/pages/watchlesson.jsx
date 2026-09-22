@@ -1,11 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import api from '../services/api'
 
-function WatchLesson() {
-  const navigate = useNavigate()
-  const { courseId } = useParams()
-
-  const courses = {
+const defaultCourses = {
     '1': {
       title: 'Complete UI UX Design',
       lessons: [
@@ -433,75 +430,238 @@ function WatchLesson() {
     },
   }
 
-  const course = courses[courseId]
+function WatchLesson() {
+  const navigate = useNavigate()
+  const { courseId } = useParams()
 
-  if (!course) {
+  const [currentLesson, setCurrentLesson] = useState(0)
+  const [completedLessonIndexes, setCompletedLessonIndexes] = useState([])
+  const [progress, setProgress] = useState(0)
+  const [course, setCourse] = useState(() => {
+    if (defaultCourses[courseId]) return defaultCourses[courseId]
+
+    const creatorCourses = JSON.parse(localStorage.getItem('craftloopCourses') || '[]')
+    const foundCreator = creatorCourses.find((c) => String(c._id || c.id) === String(courseId))
+    if (foundCreator) {
+      return {
+        title: foundCreator.title,
+        lessons:
+          Array.isArray(foundCreator.lessons) && foundCreator.lessons.length > 0
+            ? foundCreator.lessons
+            : [
+                {
+                  title: 'Lesson 1: Course Introduction',
+                  duration: '15 min',
+                  description: foundCreator.description || 'Welcome to this course.',
+                },
+              ],
+      }
+    }
+
+    return null
+  })
+
+  const [isLoading, setIsLoading] = useState(!course)
+
+  // 1. Fetch course details and user enrollment progress from backend MongoDB
+  useEffect(() => {
+    if (defaultCourses[courseId]) {
+      setCourse(defaultCourses[courseId])
+      setIsLoading(false)
+      return
+    }
+
+    const isMongoId = courseId && /^[0-9a-fA-F]{24}$/.test(String(courseId))
+
+    const fetchCourseAndEnrollment = async () => {
+      try {
+        if (courseId) {
+          const res = await api.getCourseById(courseId)
+          if (res && res.data) {
+            const dbCourse = res.data
+            const formattedLessons =
+              Array.isArray(dbCourse.lessons) && dbCourse.lessons.length > 0
+                ? dbCourse.lessons
+                : [
+                    {
+                      title: 'Lesson 1: Introduction & Core Concepts',
+                      duration: '15 min',
+                      description: dbCourse.description || 'Welcome to this course.',
+                    },
+                    {
+                      title: 'Lesson 2: Practical Implementation',
+                      duration: '25 min',
+                      description: 'Hands-on exercises and practical application.',
+                    },
+                    {
+                      title: 'Lesson 3: Project Completion',
+                      duration: '30 min',
+                      description: 'Reviewing key concepts and portfolio outcome.',
+                    },
+                  ]
+
+            setCourse({
+              title: dbCourse.title,
+              lessons: formattedLessons,
+            })
+          }
+        }
+
+        // Fetch authoritative enrollment progress from MongoDB Atlas
+        if (api.isAuthenticated() && isMongoId) {
+          let enrData = null
+          try {
+            const enrRes = await api.getMyEnrollment(courseId)
+            if (enrRes && enrRes.data) {
+              enrData = enrRes.data
+            }
+          } catch (enrErr) {
+            // If user is not yet enrolled, auto-enroll them
+            if (enrErr.status === 404) {
+              try {
+                const autoEnr = await api.enrollInCourse(courseId)
+                if (autoEnr && autoEnr.data) {
+                  enrData = autoEnr.data
+                }
+              } catch (autoErr) {
+                console.warn('Auto-enroll note:', autoErr.message || autoErr)
+              }
+            }
+          }
+
+          if (enrData) {
+            if (Array.isArray(enrData.completedLessonIndexes)) {
+              setCompletedLessonIndexes(enrData.completedLessonIndexes)
+            }
+            if (typeof enrData.progress === 'number') {
+              setProgress(enrData.progress)
+            }
+            if (
+              typeof enrData.lastAccessedLesson === 'number' &&
+              enrData.lastAccessedLesson >= 0
+            ) {
+              setCurrentLesson(enrData.lastAccessedLesson)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching course or enrollment:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCourseAndEnrollment()
+  }, [courseId])
+
+  // 2. Save progress to backend MongoDB Atlas
+  const saveProgressToBackend = async (lessonIndex, markCompleted = true) => {
+    const isMongoId = courseId && /^[0-9a-fA-F]{24}$/.test(String(courseId))
+    const totalLessons = course?.lessons?.length || 1
+
+    let nextCompleted = [...completedLessonIndexes]
+    if (markCompleted && !nextCompleted.includes(lessonIndex)) {
+      nextCompleted.push(lessonIndex)
+      setCompletedLessonIndexes(nextCompleted)
+    }
+
+    const calculatedProgress = Math.min(
+      100,
+      Math.round((nextCompleted.length / totalLessons) * 100)
+    )
+    setProgress(calculatedProgress)
+
+    if (api.isAuthenticated() && isMongoId) {
+      try {
+        const currentLessonItem = course?.lessons?.[lessonIndex]
+        const lessonId = currentLessonItem?._id || currentLessonItem?.id
+        const payload = {
+          lessonIndex,
+          progress: calculatedProgress,
+        }
+        if (lessonId && /^[0-9a-fA-F]{24}$/.test(String(lessonId))) {
+          payload.lessonId = lessonId
+        }
+
+        const res = await api.updateLessonProgress(courseId, payload)
+        if (res && res.data) {
+          if (Array.isArray(res.data.completedLessonIndexes)) {
+            setCompletedLessonIndexes(res.data.completedLessonIndexes)
+          }
+          if (typeof res.data.progress === 'number') {
+            setProgress(res.data.progress)
+          }
+        }
+      } catch (err) {
+        console.warn('Backend progress sync notice:', err.message || err)
+      }
+    }
+  }
+
+  const handleNext = async () => {
+    await saveProgressToBackend(currentLesson, true)
+
+    if (course && currentLesson < course.lessons.length - 1) {
+      const nextIdx = currentLesson + 1
+      setCurrentLesson(nextIdx)
+      if (api.isAuthenticated() && courseId && /^[0-9a-fA-F]{24}$/.test(String(courseId))) {
+        api.updateLessonProgress(courseId, { lessonIndex: nextIdx }).catch(() => {})
+      }
+    } else {
+      navigate('/mylearning')
+    }
+  }
+
+  const handlePrevious = () => {
+    if (currentLesson > 0) {
+      const prevIdx = currentLesson - 1
+      setCurrentLesson(prevIdx)
+      if (api.isAuthenticated() && courseId && /^[0-9a-fA-F]{24}$/.test(String(courseId))) {
+        api.updateLessonProgress(courseId, { lessonIndex: prevIdx }).catch(() => {})
+      }
+    }
+  }
+
+  // Safe lesson extraction to prevent ReferenceError / crash
+  const lesson =
+    (course && Array.isArray(course.lessons) && course.lessons[currentLesson]) ||
+    (course && Array.isArray(course.lessons) && course.lessons[0]) || {
+      title: 'Lesson',
+      duration: '15 min',
+      description: 'Lesson content will appear here.',
+    }
+
+  if (isLoading) {
     return (
-      <div className="rounded-3xl border border-purple-100 bg-white p-10 text-center shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Course Not Found
-        </h1>
-
-        <p className="mt-2 text-sm text-gray-500">
-          The course you are trying to watch does not exist.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => navigate('/viewercourse')}
-          className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white hover:bg-purple-700"
-        >
-          Back to Courses
-        </button>
+      <div className="flex h-64 items-center justify-center rounded-3xl border border-purple-100 bg-white p-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600" />
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:150ms]" />
+          <span className="h-3 w-3 animate-bounce rounded-full bg-purple-600 [animation-delay:300ms]" />
+          <span className="ml-2 text-sm font-semibold text-purple-700">Loading lesson...</span>
+        </div>
       </div>
     )
   }
 
-  const [currentLesson, setCurrentLesson] = useState(0)
-
-  const lesson = course.lessons[currentLesson]
-
-  const progress = Math.round(
-    ((currentLesson + 1) / course.lessons.length) * 100
-    
-  )
-  const updateProgress = (lessonIndex) => {
-  const savedCourses =
-    JSON.parse(localStorage.getItem('craftloop_learning')) || []
-
-  const updatedCourses = savedCourses.map((item) => {
-    if (item.id === courseId) {
-      return {
-        ...item,
-        progress: Math.round(
-          ((lessonIndex + 1) / course.lessons.length) * 100
-        ),
-      }
-    }
-
-    return item
-  })
-
-  localStorage.setItem(
-    'craftloop_learning',
-    JSON.stringify(updatedCourses)
-  )
-}
-
-  const handleNext = () => {
-  updateProgress(currentLesson)
-
-  if (currentLesson < course.lessons.length - 1) {
-    setCurrentLesson((prev) => prev + 1)
-  } else {
-    updateProgress(course.lessons.length - 1)
-    navigate('/mylearning')
-  }
-}
-  const handlePrevious = () => {
-    if (currentLesson > 0) {
-      setCurrentLesson((prev) => prev - 1)
-    }
+  if (!course || !Array.isArray(course.lessons) || course.lessons.length === 0) {
+    return (
+      <div className="rounded-3xl border border-purple-100 bg-white p-12 text-center shadow-sm">
+        <h2 className="text-xl font-bold text-gray-900">Course Not Found</h2>
+        <p className="mt-2 text-sm text-gray-500">
+          Unable to load lessons for this course or the course is no longer available.
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            navigate(courseId ? `/viewercoursedetails/${courseId}` : '/viewercourse')
+          }
+          className="mt-6 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+        >
+          ← Back to Courses
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -557,8 +717,16 @@ function WatchLesson() {
                 </h1>
               </div>
 
-              <span className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-bold text-green-600">
-                In Progress
+              <span
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                  completedLessonIndexes.includes(currentLesson) || progress >= 100
+                    ? 'bg-green-50 text-green-600'
+                    : 'bg-purple-50 text-purple-600'
+                }`}
+              >
+                {completedLessonIndexes.includes(currentLesson) || progress >= 100
+                  ? 'Completed'
+                  : 'In Progress'}
               </span>
 
             </div>
@@ -641,12 +809,14 @@ function WatchLesson() {
             {course.lessons.map((item, index) => (
 
               <button
-                key={item.title}
+                key={item._id || item.id || item.title || index}
                 type="button"
                 onClick={() => {
-  setCurrentLesson(index)
-  updateProgress(index)
-}}
+                  setCurrentLesson(index)
+                  if (api.isAuthenticated() && courseId && /^[0-9a-fA-F]{24}$/.test(String(courseId))) {
+                    api.updateLessonProgress(courseId, { lessonIndex: index }).catch(() => {})
+                  }
+                }}
                 className={`flex w-full items-center gap-3 border-b border-purple-50 p-4 text-left transition ${
                   index === currentLesson
                     ? 'bg-purple-50'
@@ -658,12 +828,12 @@ function WatchLesson() {
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
                     index === currentLesson
                       ? 'bg-purple-600 text-white'
-                      : index < currentLesson
+                      : completedLessonIndexes.includes(index)
                         ? 'bg-green-100 text-green-600'
                         : 'bg-gray-100 text-gray-500'
                   }`}
                 >
-                  {index < currentLesson ? '✓' : index + 1}
+                  {completedLessonIndexes.includes(index) ? '✓' : index + 1}
                 </div>
 
                 <div className="min-w-0 flex-1">

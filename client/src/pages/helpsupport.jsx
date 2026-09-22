@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function HelpSupport() {
   const navigate = useNavigate()
 
   const [openFaq, setOpenFaq] = useState(null)
-
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     subject: '',
     message: '',
@@ -41,7 +42,7 @@ function HelpSupport() {
     },
   ]
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!form.subject.trim() || !form.message.trim()) {
@@ -49,12 +50,27 @@ function HelpSupport() {
       return
     }
 
-    setSubmitted(true)
+    try {
+      setSubmitting(true)
+      const res = await api.createSupportTicket({
+        subject: form.subject.trim(),
+        message: form.message.trim(),
+      })
 
-    setForm({
-      subject: '',
-      message: '',
-    })
+      if (res && res.success) {
+        setSubmitted(true)
+        setForm({
+          subject: '',
+          message: '',
+        })
+      } else {
+        alert(res?.message || 'Failed to submit ticket. Please try again.')
+      }
+    } catch (err) {
+      alert(err?.message || 'Failed to submit ticket. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -206,8 +222,7 @@ function HelpSupport() {
 
           {submitted && (
             <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700">
-              Your support request has been submitted successfully.
-              Our support system will be connected to the backend later.
+              Your support request has been submitted successfully. Our team will review your inquiry shortly.
             </div>
           )}
 
@@ -257,9 +272,10 @@ function HelpSupport() {
 
             <button
               type="submit"
-              className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 hover:bg-purple-700"
+              disabled={submitting}
+              className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 hover:bg-purple-700 disabled:opacity-50"
             >
-              Submit Request
+              {submitting ? 'Submitting...' : 'Submit Request'}
             </button>
           </form>
         </div>

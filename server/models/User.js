@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    location: {
+      type: String,
+      default: "India",
+    },
+    username: {
+      type: String,
+      default: "",
+    },
     balance: {
       type: Number,
       default: 0,
@@ -56,4 +64,4 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("User", userSchema, "users");
