@@ -8,37 +8,70 @@ function Profile() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [profile, setProfile] = useState({
-    name: 'Alex Morgan',
-    username: 'alexmorgan',
-    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
-    location: 'India',
-    profession: 'Designer',
-    skills: 'UI/UX Design, Graphic Design, Branding, Figma',
-    avatar: '',
+  const [profile, setProfile] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+    const storedProfile = JSON.parse(localStorage.getItem('craftloopCreatorProfile') || 'null')
+    return {
+      name: storedProfile?.name || storedUser?.name || 'Creator',
+      username: storedProfile?.username || (storedUser?.email ? storedUser.email.split('@')[0] : 'creator'),
+      bio: storedProfile?.bio || storedUser?.bio || 'CraftLoop Creator showcasing original projects and courses.',
+      location: storedProfile?.location || storedUser?.location || 'India',
+      profession: storedProfile?.profession || storedUser?.title || 'Creator',
+      skills: Array.isArray(storedProfile?.skills)
+        ? storedProfile.skills.join(', ')
+        : (storedProfile?.skills || (Array.isArray(storedUser?.skills) ? storedUser.skills.join(', ') : (storedUser?.skills || ''))),
+      avatar: storedProfile?.avatar || storedUser?.avatar || '',
+    }
   })
+  const [projects, setProjects] = useState([])
+  const [courses, setCourses] = useState([])
 
   const fetchProfile = async () => {
     try {
       setLoading(true)
       setError(null)
-      const res = await api.getProfile()
-      if (res && res.success && res.data) {
-        const u = res.data
+      const [profRes, projRes, courseRes] = await Promise.all([
+        api.getProfile().catch(() => null),
+        api.getProjects({ mine: 'true' }).catch(() => null),
+        api.getCourses({ mine: 'true' }).catch(() => null),
+      ])
+
+      if (profRes && profRes.success && profRes.data) {
+        const u = profRes.data
         const mapped = {
-          name: u.name || 'Alex Morgan',
-          username: u.username || (u.email ? u.email.split('@')[0] : 'alexmorgan'),
-          bio: u.bio || 'Creative designer passionate about branding and visual storytelling.',
+          name: u.name || 'Creator',
+          username: u.username || (u.email ? u.email.split('@')[0] : 'creator'),
+          bio: u.bio !== undefined ? u.bio : 'CraftLoop Creator showcasing original projects and courses.',
           location: u.location || 'India',
-          profession: u.title || 'Designer',
+          profession: u.title || 'Creator',
           skills: Array.isArray(u.skills)
             ? u.skills.join(', ')
-            : (u.skills || 'UI/UX Design, Graphic Design, Branding, Figma'),
+            : (u.skills || ''),
           avatar: u.avatar || '',
         }
         setProfile(mapped)
-        // Sync cached profile for Topbar / Sidebar fallback
         localStorage.setItem('craftloopCreatorProfile', JSON.stringify(mapped))
+      } else {
+        const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+        if (storedUser) {
+          setProfile((prev) => ({
+            ...prev,
+            name: storedUser.name || prev.name,
+            avatar: storedUser.avatar || prev.avatar,
+          }))
+        }
+      }
+
+      if (projRes && projRes.success && Array.isArray(projRes.data)) {
+        setProjects(projRes.data)
+      } else {
+        setProjects([])
+      }
+
+      if (courseRes && courseRes.success && Array.isArray(courseRes.data)) {
+        setCourses(courseRes.data)
+      } else {
+        setCourses([])
       }
     } catch (err) {
       console.error('Failed to load profile from MongoDB:', err)
@@ -54,30 +87,12 @@ function Profile() {
 
   const tabs = ['Projects', 'Courses', 'Skills']
 
-  const projects = [
-    {
-      title: 'Brand Identity Design',
-      category: 'Branding',
-      status: 'Published',
-    },
-    {
-      title: 'Social Media Campaign',
-      category: 'Social Media',
-      status: 'Published',
-    },
-    {
-      title: 'Creative Poster Collection',
-      category: 'Graphic Design',
-      status: 'Draft',
-    },
-  ]
-
-  const skills = (profile.skills || '')
+  const skills = (profile?.skills || '')
     .split(',')
     .map((skill) => skill.trim())
     .filter(Boolean)
 
-  const initials = (profile.name || 'CL')
+  const initials = (profile?.name || 'CL')
     .trim()
     .split(/\s+/)
     .map((word) => word[0])
@@ -88,14 +103,14 @@ function Profile() {
   return (
     <div className="profile-page">
       <div className="profile-main">
-        {loading ? (
+        {loading && !profile?.name ? (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-purple-100 bg-white p-12 text-center shadow-sm">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-600 border-t-transparent" />
             <p className="mt-4 text-sm font-semibold text-gray-600">
               Loading creator profile from MongoDB Atlas...
             </p>
           </div>
-        ) : error ? (
+        ) : error && !profile?.name ? (
           <div className="rounded-3xl border border-red-100 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-semibold text-red-600">{error}</p>
             <button
@@ -115,15 +130,25 @@ function Profile() {
           <div className="profile-info">
 
             <div className="profile-avatar">
-              {profile.avatar ? (
+              {profile?.avatar ? (
                 <img
                   src={profile.avatar}
-                  alt={profile.name}
+                  alt={profile?.name || 'Profile'}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    if (e.currentTarget.nextElementSibling) {
+                      e.currentTarget.nextElementSibling.style.display = 'flex';
+                    }
+                  }}
                   className="h-full w-full rounded-full object-cover"
                 />
-              ) : (
-                initials
-              )}
+              ) : null}
+              <span
+                style={{ display: profile?.avatar ? 'none' : 'flex' }}
+                className="h-full w-full items-center justify-center rounded-full font-bold text-white"
+              >
+                {initials}
+              </span>
             </div>
 
             <div className="profile-details">
@@ -131,8 +156,8 @@ function Profile() {
               <div className="profile-name-row">
 
                 <div>
-                  <h1>{profile.name}</h1>
-                  <p>@{profile.username}</p>
+                  <h1>{profile?.name || 'Creator'}</h1>
+                  <p>@{profile?.username || 'creator'}</p>
                 </div>
 
                 <button
@@ -146,12 +171,12 @@ function Profile() {
               </div>
 
               <p className="profile-bio">
-                {profile.bio}
+                {profile?.bio || 'CraftLoop Creator showcasing original projects and courses.'}
               </p>
 
               <div className="profile-meta">
-                <span>📍 {profile.location}</span>
-                <span>🎨 {profile.profession}</span>
+                <span>📍 {profile?.location || 'India'}</span>
+                <span>🎨 {profile?.profession || 'Creator'}</span>
                 <span>✨ Available for work</span>
               </div>
 
@@ -161,22 +186,12 @@ function Profile() {
 
           <div className="profile-stats">
             <div>
-              <strong>2,480</strong>
-              <span>Followers</span>
-            </div>
-
-            <div>
-              <strong>386</strong>
-              <span>Following</span>
-            </div>
-
-            <div>
-              <strong>24</strong>
+              <strong>{projects.length}</strong>
               <span>Projects</span>
             </div>
 
             <div>
-              <strong>12</strong>
+              <strong>{courses.length}</strong>
               <span>Courses</span>
             </div>
           </div>
@@ -210,69 +225,104 @@ function Profile() {
 
             {/* Projects */}
             {activeTab === 'Projects' && (
-              <div className="profile-project-grid">
-
-                {projects.map((project, index) => (
-                  <div
-                    className="profile-project-card"
-                    key={project.title}
-                  >
-
+              projects.length > 0 ? (
+                <div className="profile-project-grid">
+                  {projects.map((project, index) => (
                     <div
-                      className={`profile-project-image project-color-${index}`}
+                      className="profile-project-card"
+                      key={project._id || project.id || index}
                     >
-                      <span>✦</span>
-                    </div>
-
-                    <div className="profile-project-content">
-
-                      <span>{project.category}</span>
-
-                      <h3>{project.title}</h3>
-
-                      <div className="profile-project-bottom">
-
-                        <small>{project.status}</small>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate('/your-project')
-                          }
-                        >
-                          View →
-                        </button>
-
+                      <div
+                        className={`profile-project-image project-color-${index % 5}`}
+                      >
+                        <span>🎨</span>
                       </div>
 
+                      <div className="profile-project-content">
+                        <span>{project.category || 'General'}</span>
+
+                        <h3>{project.title}</h3>
+
+                        <div className="profile-project-bottom">
+                          <small>{project.status || 'Published'}</small>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate('/your-project')
+                            }
+                          >
+                            View →
+                          </button>
+                        </div>
+                      </div>
                     </div>
-
-                  </div>
-                ))}
-
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-profile-state">
+                  <div>📁</div>
+                  <h3>No Projects Yet</h3>
+                  <p>Projects you create will appear here.</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/create')}
+                  >
+                    + Add Project
+                  </button>
+                </div>
+              )
             )}
 
             {/* Courses */}
             {activeTab === 'Courses' && (
-              <div className="empty-profile-state">
+              courses.length > 0 ? (
+                <div className="profile-project-grid">
+                  {courses.map((courseItem, index) => (
+                    <div
+                      className="profile-project-card"
+                      key={courseItem._id || courseItem.id || index}
+                    >
+                      <div
+                        className={`profile-project-image project-color-${index % 5}`}
+                      >
+                        <span>🎓</span>
+                      </div>
 
-                <div>🎓</div>
+                      <div className="profile-project-content">
+                        <span>{courseItem.category || 'General'}</span>
 
-                <h3>Your Courses</h3>
+                        <h3>{courseItem.title}</h3>
 
-                <p>
-                  Courses you create will appear here.
-                </p>
+                        <div className="profile-project-bottom">
+                          <small>{Array.isArray(courseItem.lessons) ? `${courseItem.lessons.length} Lessons` : '0 Lessons'}</small>
 
-                <button
-                  type="button"
-                  onClick={() => navigate('/create')}
-                >
-                  Create Course →
-                </button>
-
-              </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/course-details?courseId=${courseItem._id || courseItem.id}`)
+                            }
+                          >
+                            Manage →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-profile-state">
+                  <div>🎓</div>
+                  <h3>No Courses Yet</h3>
+                  <p>Courses you create will appear here.</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/create')}
+                  >
+                    Create Course →
+                  </button>
+                </div>
+              )
             )}
 
             {/* Skills */}

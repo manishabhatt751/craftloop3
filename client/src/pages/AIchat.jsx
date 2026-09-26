@@ -43,6 +43,7 @@ function AIChat() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState('Finding relevant CraftLoop resources...')
   const [errorMessage, setErrorMessage] = useState('')
   const [lastUserMessage, setLastUserMessage] = useState('')
 
@@ -93,9 +94,16 @@ function AIChat() {
     saveMessages(updatedMessages)
     setInput('')
     setIsTyping(true)
+    setLoadingPhase('Finding relevant CraftLoop resources...')
+
+    // Update loading text smoothly to accurately represent backend phases
+    const phaseTimer = setTimeout(() => {
+      setLoadingPhase('Generating your personalized recommendation...')
+    }, 1100)
 
     // Check token authentication
     if (!api.isAuthenticated()) {
+      clearTimeout(phaseTimer)
       const errorText = 'Please log in to CraftLoop to use AI.'
       setErrorMessage(errorText)
       const errorAiMessage = {
@@ -146,7 +154,9 @@ function AIChat() {
       }
       saveMessages([...updatedMessages, errorAiMessage])
     } finally {
+      clearTimeout(phaseTimer)
       setIsTyping(false)
+      setLoadingPhase('Finding relevant CraftLoop resources...')
     }
   }
 
@@ -314,7 +324,7 @@ function AIChat() {
                       <span className="h-2 w-2 animate-bounce rounded-full bg-purple-500 [animation-delay:300ms]" />
                     </div>
                     <span className="text-xs text-purple-700 font-medium">
-                      Searching CraftLoop creators, courses & projects...
+                      {loadingPhase}
                     </span>
                   </div>
                 </div>

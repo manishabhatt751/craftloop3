@@ -2,6 +2,19 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
+const isVideoUrl = (url = '') => {
+  if (!url) return false
+  const clean = url.split('?')[0].toLowerCase()
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.ogg') ||
+    clean.endsWith('.mkv') ||
+    clean.includes('/video/')
+  )
+}
+
 function YourProject() {
   const navigate = useNavigate()
 
@@ -20,23 +33,16 @@ function YourProject() {
         const response = await api.getProjects({ mine: 'true' })
         if (response && response.success && Array.isArray(response.data)) {
           setProjects(response.data)
-          localStorage.setItem('craftloopProjects', JSON.stringify(response.data))
-          return
+        } else {
+          setProjects([])
         }
+      } else {
+        setProjects([])
       }
-
-      // Fallback to localStorage if unauthenticated or offline
-      const savedProjects = JSON.parse(
-        localStorage.getItem('craftloopProjects') || '[]'
-      )
-      setProjects(Array.isArray(savedProjects) ? savedProjects : [])
     } catch (err) {
       console.error('Failed to fetch projects from backend:', err)
-      const savedProjects = JSON.parse(
-        localStorage.getItem('craftloopProjects') || '[]'
-      )
-      setProjects(Array.isArray(savedProjects) ? savedProjects : [])
-      setError('Could not refresh projects from server. Showing local copy.')
+      setProjects([])
+      setError('Could not load projects from MongoDB Atlas. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -82,15 +88,7 @@ function YourProject() {
         await api.deleteProject(id)
       }
 
-      const updatedProjects = projects.filter(
-        (project) => (project._id || project.id) !== id
-      )
-
-      setProjects(updatedProjects)
-      localStorage.setItem(
-        'craftloopProjects',
-        JSON.stringify(updatedProjects)
-      )
+      setProjects((prev) => prev.filter((project) => (project._id || project.id) !== id))
     } catch (err) {
       console.error('Error deleting project:', err)
       alert(err.message || 'Failed to delete project from server.')
@@ -193,14 +191,24 @@ function YourProject() {
                 className="overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
               >
 
-                {/* Image / Placeholder */}
-                <div className="flex h-44 items-center justify-center bg-purple-100">
+                {/* Media / Video / Image / Placeholder */}
+                <div className="flex h-48 items-center justify-center overflow-hidden bg-black">
                   {project.image ? (
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      className="h-full w-full object-cover"
-                    />
+                    isVideoUrl(project.image) ? (
+                      <video
+                        src={project.image}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={project.image}
+                        alt={project.title}
+                        className="h-full w-full object-cover"
+                      />
+                    )
                   ) : (
                     <span className="text-5xl">🎨</span>
                   )}

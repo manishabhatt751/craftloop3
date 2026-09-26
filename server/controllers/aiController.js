@@ -41,8 +41,13 @@ const handleAIChat = async (req, res) => {
       });
     }
 
+    const totalStart = Date.now();
+
     // 5. Generate structured recommendations from real MongoDB data
-    const recommendationResult = await getRecommendations(cleanMessage, req.user);
+    const recommendationResult = await getRecommendations(cleanMessage, req.user, {
+      authTime: req._aiAuthTime || 0,
+      totalStart,
+    });
 
     return res.status(200).json(recommendationResult);
   } catch (err) {

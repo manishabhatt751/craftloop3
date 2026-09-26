@@ -10,41 +10,34 @@ function Dashboard() {
   const [courses, setCourses] = useState([])
 
   useEffect(() => {
-    const savedProfile = JSON.parse(
-      localStorage.getItem('craftloopCreatorProfile') || 'null'
-    )
-    const storedUser = JSON.parse(
-      localStorage.getItem('craftloop_user') || 'null'
-    )
-    setProfile(savedProfile || storedUser)
-
-    const savedProjects = JSON.parse(
-      localStorage.getItem('craftloopProjects') || '[]'
-    )
-
-    const savedCourses = JSON.parse(
-      localStorage.getItem('craftloopCourses') || '[]'
-    )
-
-    setProjects(
-      Array.isArray(savedProjects) ? savedProjects : []
-    )
-    setCourses(
-      Array.isArray(savedCourses) ? savedCourses : []
-    )
-
     if (api.isAuthenticated()) {
       Promise.all([
+        api.getProfile().catch(() => null),
         api.getProjects({ mine: 'true' }).catch(() => null),
         api.getCourses({ mine: 'true' }).catch(() => null),
-      ]).then(([projRes, courseRes]) => {
-        if (projRes && projRes.success && Array.isArray(projRes.data) && projRes.data.length > 0) {
-          setProjects(projRes.data)
+      ]).then(([profRes, projRes, courseRes]) => {
+        if (profRes && profRes.success && profRes.data) {
+          setProfile(profRes.data)
+        } else {
+          const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+          setProfile(storedUser)
         }
-        if (courseRes && courseRes.success && Array.isArray(courseRes.data) && courseRes.data.length > 0) {
+
+        if (projRes && projRes.success && Array.isArray(projRes.data)) {
+          setProjects(projRes.data)
+        } else {
+          setProjects([])
+        }
+
+        if (courseRes && courseRes.success && Array.isArray(courseRes.data)) {
           setCourses(courseRes.data)
+        } else {
+          setCourses([])
         }
       })
+    } else {
+      setProjects([])
+      setCourses([])
     }
   }, [])
 

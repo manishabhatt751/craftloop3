@@ -2,92 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
-const defaultCourses = [
-  {
-    id: '1',
-    title: 'Complete UI UX Design',
-    category: 'Design',
-    level: 'Beginner',
-    creator: 'Alex Morgan',
-    lessons: 12,
-    duration: '4h 30m',
-    students: 240,
-    description:
-      'Learn the fundamentals of UI UX design and create modern digital experiences.',
-    image:
-      'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: '2',
-    title: 'Graphic Design with Canva',
-    category: 'Design',
-    level: 'Beginner',
-    creator: 'Sarah Wilson',
-    lessons: 10,
-    duration: '3h 20m',
-    students: 180,
-    description:
-      'Learn how to create professional graphics, social media designs and presentations.',
-    image:
-      'https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: '3',
-    title: 'React for Beginners',
-    category: 'Development',
-    level: 'Beginner',
-    creator: 'Daniel Smith',
-    lessons: 15,
-    duration: '5h 10m',
-    students: 320,
-    description:
-      'Start building interactive websites using React and modern JavaScript.',
-    image:
-      'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: '4',
-    title: 'Content Writing Masterclass',
-    category: 'Content',
-    level: 'Intermediate',
-    creator: 'Emma Johnson',
-    lessons: 8,
-    duration: '2h 45m',
-    students: 145,
-    description:
-      'Learn content writing, storytelling and techniques for creating engaging content.',
-    image:
-      'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: '5',
-    title: 'Digital Marketing Basics',
-    category: 'Business',
-    level: 'Beginner',
-    creator: 'Ryan Taylor',
-    lessons: 11,
-    duration: '3h 50m',
-    students: 210,
-    description:
-      'Understand digital marketing, branding, social media and online growth strategies.',
-    image:
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: '6',
-    title: 'Figma Prototyping',
-    category: 'UX',
-    level: 'Intermediate',
-    creator: 'Olivia Brown',
-    lessons: 9,
-    duration: '3h 15m',
-    students: 165,
-    description:
-      'Create professional prototypes and improve your UX workflow using Figma.',
-    image:
-      'https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=800&q=80',
-  },
-]
+
 
 function getCourseFallbackImage(category = '') {
   const cat = String(category).toLowerCase()
@@ -129,7 +44,7 @@ function ViewerCourses() {
     api
       .getCourses()
       .then((res) => {
-        if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (res && res.data && Array.isArray(res.data)) {
           const dynamicCourses = res.data.map((c) => ({
             id: c._id,
             title: c.title || 'Untitled Course',
@@ -148,15 +63,14 @@ function ViewerCourses() {
 
           setCourses(dynamicCourses)
         } else {
-          // Fallback to catalog if database currently has no published courses
-          setCourses(defaultCourses)
+          setCourses([])
         }
         setLoading(false)
       })
       .catch((err) => {
-        console.warn('Failed to fetch courses from backend, using default catalog:', err)
-        setError('Unable to reach server. Showing catalog courses.')
-        setCourses(defaultCourses)
+        console.error('Failed to fetch courses from backend:', err)
+        setError('Unable to load courses from MongoDB Atlas. Please try again.')
+        setCourses([])
         setLoading(false)
       })
   }, [])

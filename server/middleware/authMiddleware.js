@@ -6,6 +6,7 @@ const { User } = require("../models");
  * Attaches req.user to request if valid
  */
 const protect = async (req, res, next) => {
+  const authStart = Date.now();
   let token;
 
   if (
@@ -32,7 +33,7 @@ const protect = async (req, res, next) => {
     }
     const decoded = jwt.verify(token, secret);
 
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await User.findById(decoded.id).select("-password").lean();
 
     if (!user) {
       return res.status(401).json({
@@ -41,6 +42,7 @@ const protect = async (req, res, next) => {
       });
     }
 
+    req._aiAuthTime = Date.now() - authStart;
     req.user = user;
     next();
   } catch (err) {

@@ -12,9 +12,11 @@ const walletRoutes = require("./walletRoutes");
 const supportRoutes = require("./supportRoutes");
 const savedProjectRoutes = require("./savedProjectRoutes");
 const uploadRoutes = require("./uploadRoutes");
+const practiceRoutes = require("./practiceRoutes");
 const { createNotification } = require("../controllers/notificationController");
 const { protect } = require("../middleware/authMiddleware");
-const { CommunityPost, User } = require("../models");
+const mongoose = require("mongoose");
+const { CommunityPost, User, Project } = require("../models");
 
 // Health check endpoint
 router.get("/health", getHealthStatus);
@@ -33,6 +35,9 @@ router.use("/projects", projectRoutes);
 
 // Enrollment routes
 router.use("/enrollments", enrollmentRoutes);
+
+// Practices routes
+router.use("/practices", practiceRoutes);
 
 // AI Chat & Recommendation Assistant routes
 router.use("/ai", aiRoutes);
@@ -79,6 +84,24 @@ router.get("/creators", async (req, res) => {
   }
 });
 
+// Single creator details endpoint
+router.get("/creators/:id", async (req, res) => {
+  try {
+    const creator = await User.findById(req.params.id)
+      .select("name email title bio skills avatar location role")
+      .lean();
+    if (!creator) {
+      return res.status(404).json({ success: false, message: "Creator not found" });
+    }
+    res.status(200).json({
+      success: true,
+      data: creator,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching creator details" });
+  }
+});
+
 // User Profile endpoints
 router.get("/users/profile", protect, async (req, res) => {
   try {
@@ -118,6 +141,7 @@ router.put("/users/profile", protect, async (req, res) => {
       success: true,
       message: "Profile updated successfully.",
       data: updatedUser,
+      user: updatedUser,
     });
   } catch (err) {
     console.error("Profile update error:", err);
@@ -125,12 +149,28 @@ router.put("/users/profile", protect, async (req, res) => {
   }
 });
 
+// Dedicated avatar upload endpoints (for multipart/form-data)
+router.post("/users/profile/avatar", protect, (req, res, next) => {
+  req.url = "/";
+  uploadRoutes(req, res, next);
+});
+
+router.post("/users/avatar", protect, (req, res, next) => {
+  req.url = "/";
+  uploadRoutes(req, res, next);
+});
+
 // Community Posts endpoints
 router.get("/community/posts", async (req, res) => {
   try {
     const posts = await CommunityPost.find()
       .sort({ createdAt: -1 })
-      .populate("author", "name avatar role title");
+      .populate("author", "name avatar role title")
+      .populate({
+        path: "projectId",
+        select: "title description category image tags tools demoUrl price status creator",
+        populate: { path: "creator", select: "name avatar role title" },
+      });
     res.status(200).json({
       success: true,
       count: posts.length,
@@ -143,23 +183,77 @@ router.get("/community/posts", async (req, res) => {
 
 router.post("/community/posts", protect, async (req, res) => {
   try {
-    const { content, category, tags, image } = req.body;
-    if (!content || !String(content).trim()) {
-      return res.status(400).json({ success: false, message: "Post content is required." });
+    const { content, category, tags, image, projectId, projectUrl, postType } = req.body;
+
+    let resolvedProjectId = null;
+    let resolvedProjectUrl = null;
+    let resolvedPostType = postType === "project" || projectId ? "project" : "text";
+    let projectDoc = null;
+
+    if (projectId) {
+      if (!mongoose.Types.ObjectId.isValid(projectId)) {
+        return res.status(404).json({ success: false, message: "Project not found." });
+      }
+
+      projectDoc = await Project.findById(projectId);
+      if (!projectDoc) {
+        return res.status(404).json({ success: false, message: "Project not found." });
+      }
+
+      // Check ownership - strictly only allow sharing own projects
+      const creatorId = projectDoc.creator
+        ? (projectDoc.creator._id || projectDoc.creator).toString()
+        : null;
+      const currentUserId = (req.user._id || req.user.id).toString();
+
+      if (creatorId !== currentUserId) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only share your own projects.",
+        });
+      }
+
+      resolvedProjectId = projectDoc._id;
+      resolvedPostType = "project";
+      resolvedProjectUrl = projectUrl || `/project/${projectDoc._id}`;
     }
 
-    const postTags = Array.isArray(tags) ? tags : (category ? [category] : []);
+    const trimmedContent = content ? String(content).trim() : "";
+    let finalContent = trimmedContent;
+
+    if (!finalContent) {
+      if (projectDoc) {
+        finalContent = `Check out my project: ${projectDoc.title}`;
+      } else {
+        return res.status(400).json({ success: false, message: "Post content is required." });
+      }
+    }
+
+    const postTags = Array.isArray(tags)
+      ? tags
+      : (category ? [category] : (projectDoc?.category ? [projectDoc.category] : []));
+
     const post = await CommunityPost.create({
       author: req.user._id,
       authorName: req.user.name,
       authorAvatar: req.user.avatar || "",
       authorRole: req.user.title || (req.user.role === "creator" ? "Creator" : "Viewer"),
-      content: String(content).trim(),
+      content: finalContent,
       tags: postTags,
-      image: image || "",
+      image: image || (projectDoc && projectDoc.image ? projectDoc.image : ""),
+      projectId: resolvedProjectId,
+      projectUrl: resolvedProjectUrl,
+      postType: resolvedPostType,
     });
 
-    await post.populate("author", "name avatar role title");
+    await post.populate([
+      { path: "author", select: "name avatar role title" },
+      {
+        path: "projectId",
+        select: "title description category image tags tools demoUrl price status creator",
+        populate: { path: "creator", select: "name avatar role title" },
+      },
+    ]);
 
     res.status(201).json({
       success: true,
@@ -293,6 +387,7 @@ router.get("/", (req, res) => {
       courses: "/api/courses",
       projects: "/api/projects",
       enrollments: "/api/enrollments",
+      practices: "/api/practices",
       ai: "/api/ai/chat",
     },
   });

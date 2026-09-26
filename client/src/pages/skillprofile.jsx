@@ -1,21 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function SkillProfile() {
   const navigate = useNavigate()
 
-  const savedProfile = JSON.parse(
-    localStorage.getItem('craftloopCreatorProfile') || 'null'
-  )
+  const [profile, setProfile] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+    return {
+      name: storedUser?.name || 'Creator',
+      username: storedUser?.email ? storedUser.email.split('@')[0] : 'creator',
+      profession: storedUser?.title || 'Creator',
+      skills: Array.isArray(storedUser?.skills) ? storedUser.skills.join(', ') : (storedUser?.skills || ''),
+      avatar: storedUser?.avatar || '',
+    }
+  })
 
-  const profile = savedProfile || {
-    name: 'Alex Morgan',
-    username: 'alexmorgan',
-    profession: 'Designer',
-    skills: 'UI/UX Design, Graphic Design, Branding, Figma',
-  }
+  useEffect(() => {
+    api.getProfile().then((res) => {
+      if (res && res.success && res.data) {
+        const u = res.data
+        setProfile({
+          name: u.name || 'Creator',
+          username: u.username || (u.email ? u.email.split('@')[0] : 'creator'),
+          profession: u.title || 'Creator',
+          skills: Array.isArray(u.skills) ? u.skills.join(', ') : (u.skills || ''),
+          avatar: u.avatar || '',
+        })
+      }
+    }).catch(() => {})
+  }, [])
 
-  const profileSkills = profile.skills
+  const profileSkills = (profile.skills || '')
     .split(',')
     .map((skill) => skill.trim())
     .filter(Boolean)
@@ -88,10 +104,16 @@ function SkillProfile() {
         <section className="skill-profile-card">
 
           <div className="skill-profile-avatar">
-            <img
-              src="https://i.pravatar.cc/150?img=47"
-              alt="Profile"
-            />
+            {profile.avatar ? (
+              <img
+                src={profile.avatar}
+                alt="Profile"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-purple-600 text-2xl font-bold text-white rounded-full">
+                {(profile.name || 'C').slice(0, 2).toUpperCase()}
+              </div>
+            )}
           </div>
 
           <div className="skill-profile-info">

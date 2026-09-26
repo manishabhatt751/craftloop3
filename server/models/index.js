@@ -8,6 +8,8 @@ const Notification = require("./Notification");
 const Transaction = require("./Transaction");
 const SupportTicket = require("./SupportTicket");
 const SavedProject = require("./SavedProject");
+const Practice = require("./Practice");
+const PracticeSubmission = require("./PracticeSubmission");
 
 module.exports = {
   User,
@@ -20,5 +22,7 @@ module.exports = {
   Transaction,
   SupportTicket,
   SavedProject,
+  Practice,
+  PracticeSubmission,
 };
 

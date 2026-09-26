@@ -2,87 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
 import { getSocket } from '../services/socket'
 
-const defaultConversations = [
-  {
-    id: 1,
-    name: 'Maya Creative',
-    username: 'mayacreative',
-    role: 'Graphic Designer',
-    avatar: 'MC',
-    lastMessage: 'Hey! I really liked your recent project.',
-    time: '10:30 AM',
-    unread: 2,
-    messages: [
-      {
-        id: 1,
-        sender: 'them',
-        text: 'Hey! I really liked your recent project.',
-        time: '10:28 AM',
-      },
-      {
-        id: 2,
-        sender: 'me',
-        text: 'Thank you! I really appreciate that.',
-        time: '10:29 AM',
-      },
-      {
-        id: 3,
-        sender: 'them',
-        text: 'Would love to collaborate sometime.',
-        time: '10:30 AM',
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Arjun Sharma',
-    username: 'arjuncreates',
-    role: 'UI/UX Designer',
-    avatar: 'AS',
-    lastMessage: 'Can you share your project details?',
-    time: 'Yesterday',
-    unread: 0,
-    messages: [
-      {
-        id: 1,
-        sender: 'them',
-        text: 'Can you share your project details?',
-        time: 'Yesterday',
-      },
-      {
-        id: 2,
-        sender: 'me',
-        text: 'Sure, I will send them shortly.',
-        time: 'Yesterday',
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Sarah Studio',
-    username: 'sarahstudio',
-    role: 'Content Creator',
-    avatar: 'SS',
-    lastMessage: 'Thanks for the feedback!',
-    time: 'Monday',
-    unread: 0,
-    messages: [
-      {
-        id: 1,
-        sender: 'me',
-        text: 'Your latest content looks great!',
-        time: 'Monday',
-      },
-      {
-        id: 2,
-        sender: 'them',
-        text: 'Thanks for the feedback!',
-        time: 'Monday',
-      },
-    ],
-  },
-]
-
 function Messages() {
   const [conversations, setConversations] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -91,6 +10,9 @@ function Messages() {
   const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
+    // Purge any lingering dummy messages from localStorage
+    localStorage.removeItem('craftloopMessages')
+
     const loadConversations = async () => {
       try {
         const meRes = await api.getMe().catch(() => null)
@@ -99,48 +21,38 @@ function Messages() {
         }
 
         const res = await api.getConversations().catch(() => null)
-        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const loaded = res.data.map((conv) => ({
-            id: conv.partner._id,
-            name: conv.partner.name,
-            username: conv.partner.email ? conv.partner.email.split('@')[0] : 'user',
-            role: conv.partner.title || (conv.partner.role === 'creator' ? 'Creator' : 'Viewer'),
-            avatar: conv.partner.name
-              ? conv.partner.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-              : 'U',
-            lastMessage: conv.lastMessage,
-            time: new Date(conv.lastMessageTime).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            unread: conv.unreadCount || 0,
-            messages: [],
-          }))
-          setConversations(loaded)
-          setSelectedId(loaded[0].id)
-          loadMessages(loaded[0].id, meRes?.user?._id)
+        if (res && res.success && Array.isArray(res.data)) {
+          if (res.data.length > 0) {
+            const loaded = res.data.map((conv) => ({
+              id: conv.partner._id,
+              name: conv.partner.name,
+              username: conv.partner.email ? conv.partner.email.split('@')[0] : 'user',
+              role: conv.partner.title || (conv.partner.role === 'creator' ? 'Creator' : 'Viewer'),
+              avatar: conv.partner.name
+                ? conv.partner.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+                : 'U',
+              lastMessage: conv.lastMessage,
+              time: new Date(conv.lastMessageTime).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              unread: conv.unreadCount || 0,
+              messages: [],
+            }))
+            setConversations(loaded)
+            setSelectedId(loaded[0].id)
+            loadMessages(loaded[0].id, meRes?.user?._id)
+          } else {
+            setConversations([])
+            setSelectedId(null)
+          }
           return
         }
       } catch (err) {
         console.error('Failed to load conversations from backend:', err)
       }
-
-      // Local/default fallback
-      const savedMessages = JSON.parse(
-        localStorage.getItem('craftloopMessages') || 'null'
-      )
-
-      if (Array.isArray(savedMessages) && savedMessages.length > 0) {
-        setConversations(savedMessages)
-        setSelectedId(savedMessages[0].id)
-      } else {
-        setConversations(defaultConversations)
-        setSelectedId(defaultConversations[0].id)
-        localStorage.setItem(
-          'craftloopMessages',
-          JSON.stringify(defaultConversations)
-        )
-      }
+      setConversations([])
+      setSelectedId(null)
     }
 
     loadConversations()
@@ -283,11 +195,6 @@ function Messages() {
 
   const saveConversations = (updatedConversations) => {
     setConversations(updatedConversations)
-
-    localStorage.setItem(
-      'craftloopMessages',
-      JSON.stringify(updatedConversations)
-    )
   }
 
   const selectConversation = (id) => {

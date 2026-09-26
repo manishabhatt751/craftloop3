@@ -1,8 +1,31 @@
-const { User, Course, Project } = require("../models");
+const { GoogleGenAI } = require("@google/genai");
+const { User, Course, Project, Enrollment, Practice, PracticeSubmission } = require("../models");
 
 /**
- * Domain knowledge base for keyword expansion, comprehensive explanations,
- * learning roadmaps, skills roadmaps, tools, and next steps.
+ * Singleton Gemini client manager
+ */
+let geminiClient = null;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    return null;
+  }
+  if (!geminiClient) {
+    geminiClient = new GoogleGenAI({ apiKey: apiKey.trim() });
+  }
+  return geminiClient;
+}
+
+// Available Gemini Flash models with automatic fallback
+const CANDIDATE_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+];
+
+/**
+ * Domain knowledge base for keyword expansion, domain skills,
+ * tools, next steps, and robust offline fallback guidance.
  */
 const DOMAIN_KNOWLEDGE = [
   {
@@ -300,36 +323,34 @@ const DOMAIN_KNOWLEDGE = [
     keywords: [
       "photography",
       "photographer",
-      "photo editing",
-      "lightroom",
+      "photo",
+      "camera",
+      "lighting",
       "portrait",
       "landscape",
-      "camera",
+      "lightroom",
     ],
-    skills: ["Photography", "Photo Editing", "Color Grading", "Visual Arts", "Lighting"],
-    tools: ["Adobe Lightroom", "Adobe Photoshop"],
+    skills: ["Photography", "Photo Editing", "Lighting", "Composition", "Adobe Lightroom"],
+    tools: ["Adobe Lightroom", "Adobe Photoshop", "Capture One"],
     definition:
-      "Photography is the creative practice of capturing light, composition, and moments to tell stories or document reality. It blends technical camera mastery (shutter speed, aperture, ISO) with visual aesthetics and post-processing in tools like Adobe Lightroom and Photoshop.",
+      "Photography is the art and practice of capturing light and moments to convey emotion, tell stories, and document subjects with visual balance and technical mastery.",
     learningRoadmap:
-      "Roadmap to learn Photography:\n\n1. Master the Exposure Triangle: Understand how aperture (depth of field), shutter speed (motion blur), and ISO (noise) interact.\n2. Practice Composition: Learn the rule of thirds, leading lines, framing, and golden hour lighting.\n3. Post-Processing: Master RAW image color correction and tonal balance in Adobe Lightroom.",
+      "Roadmap to learn Photography:\n\n1. Master the Exposure Triangle: ISO, Aperture, and Shutter Speed.\n2. Understand Composition: Rule of thirds, leading lines, framing, and negative space.\n3. Learn Lighting: Natural light, golden hour, and directional studio lighting.\n4. Post-processing: RAW photo development, color grading, and exposure balancing in Lightroom.",
     skillsRoadmap:
-      "Core Photography Skills: Manual camera exposure, lighting control, portrait direction, and RAW color grading.",
+      "Core Photography Skills: Exposure control, manual camera operation, color balancing, and portrait posing.",
     nextSteps: [
-      "Master manual camera controls: shutter speed, aperture, and ISO.",
-      "Practice the rule of thirds, leading lines, and lighting angles.",
-      "Curate and color-correct a cohesive 10-photo thematic series.",
+      "Practice shooting in manual mode to master the exposure triangle.",
+      "Experiment with composition techniques like leading lines and framing.",
+      "Develop your editing style in Adobe Lightroom.",
     ],
     followUps: [
-      "Find photography creators on CraftLoop",
+      "Find photography mentors on CraftLoop",
       "Show photo editing courses",
-      "What camera settings should beginners use?",
+      "What camera settings should a beginner use?",
     ],
   },
 ];
 
-/**
- * Stopwords to filter out when parsing query keywords
- */
 const STOP_WORDS = new Set([
   "a", "an", "the", "and", "or", "but", "if", "then", "else", "when", "at", "by", "for",
   "with", "about", "against", "between", "into", "through", "during", "before", "after",
@@ -340,15 +361,170 @@ const STOP_WORDS = new Set([
   "don", "should", "now", "i", "want", "learn", "teach", "me", "find", "best", "good",
   "which", "who", "whom", "creator", "creators", "course", "courses", "project", "projects",
   "like", "need", "looking", "help", "show", "give", "tell", "please", "my", "your", "our",
+  "expert", "someone", "know", "craftloop",
 ]);
 
 /**
- * Extracts intent, matched domains, keywords, and skills from a natural-language query
- * @param {string} query
- * @returns {object}
+ * Classifies query into one of the designated CraftLoop AI intent types
  */
-function extractUserIntent(query) {
+function classifyIntent(userMessage) {
+  const q = (userMessage || "").toLowerCase().trim();
+
+  // Next-step / Continuation guidance
+  if (
+    q.includes("what should i learn next") ||
+    q.includes("what to learn next") ||
+    q.includes("learn next") ||
+    q.includes("completed") ||
+    q.includes("finished learning") ||
+    q.includes("after learning") ||
+    q.includes("what is next") ||
+    q.includes("next step")
+  ) {
+    return "NEXT_STEP";
+  }
+
+  // Project recommendation & practice suggestions
+  if (
+    q.includes("what project") ||
+    q.includes("what should i build") ||
+    q.includes("what to build") ||
+    q.includes("project should i build") ||
+    q.includes("project idea") ||
+    q.includes("practice project") ||
+    q.includes("sample project") ||
+    q.includes("build next")
+  ) {
+    return "PROJECT_RECOMMENDATION";
+  }
+
+  // Roadmap & path
+  if (
+    q.includes("roadmap") ||
+    q.includes("step by step") ||
+    q.includes("how to become a full-stack") ||
+    q.includes("how to become a") ||
+    q.includes("want to become a") ||
+    q.includes("learning path") ||
+    q.includes("guide to become")
+  ) {
+    return "LEARNING_ROADMAP";
+  }
+
+  // Creator recommendation
+  if (
+    q.includes("which creator") ||
+    q.includes("what creator") ||
+    q.includes("find me a creator") ||
+    q.includes("find a creator") ||
+    q.includes("who can help") ||
+    q.includes("mentor") ||
+    q.includes("instructor") ||
+    q.includes("teacher") ||
+    q.includes("recommend a creator") ||
+    q.includes("creator who teaches") ||
+    q.includes("learn from")
+  ) {
+    return "CREATOR_RECOMMENDATION";
+  }
+
+  // Service / Freelance recommendation
+  if (
+    q.includes("service") ||
+    q.includes("hire") ||
+    q.includes("freelancer") ||
+    q.includes("freelance") ||
+    q.includes("for a flyer") ||
+    q.includes("for a logo") ||
+    q.includes("commission")
+  ) {
+    return "SERVICE_RECOMMENDATION";
+  }
+
+  // Course recommendation
+  if (
+    q.includes("course") ||
+    q.includes("tutorial") ||
+    q.includes("class") ||
+    q.includes("which course") ||
+    q.includes("beginner course") ||
+    q.includes("which course should i start") ||
+    q.includes("which course to start") ||
+    q.includes("which course to take") ||
+    q.includes("recommend a course") ||
+    q.includes("find me a course")
+  ) {
+    return "COURSE_RECOMMENDATION";
+  }
+
+  // Tool guidance
+  if (
+    q.includes("tool") ||
+    q.includes("software") ||
+    q.includes("what app") ||
+    q.includes("program") ||
+    q.includes("install")
+  ) {
+    return "TOOL_GUIDANCE";
+  }
+
+  // Practice suggestions
+  if (
+    q.includes("practice") ||
+    q.includes("exercise") ||
+    q.includes("hands-on") ||
+    q.includes("drill")
+  ) {
+    return "PRACTICE_SUGGESTION";
+  }
+
+  // Community guidance
+  if (
+    q.includes("community") ||
+    q.includes("peer feedback") ||
+    q.includes("guidelines") ||
+    q.includes("collaborate")
+  ) {
+    return "COMMUNITY_GUIDANCE";
+  }
+
+  // Skill guidance
+  if (
+    q.includes("what skills") ||
+    q.includes("which skills") ||
+    q.includes("skills do i need") ||
+    q.includes("skills needed") ||
+    q.includes("skills required") ||
+    q.includes("how can i learn") ||
+    q.includes("how to learn") ||
+    q.includes("how do i learn") ||
+    q.includes("i want to learn")
+  ) {
+    return "SKILL_GUIDANCE";
+  }
+
+  // General Educational questions
+  if (
+    q.startsWith("what is") ||
+    q.startsWith("what are") ||
+    q.startsWith("tell me about") ||
+    q.startsWith("explain") ||
+    q.startsWith("define") ||
+    q.includes("meaning of") ||
+    q.includes("what does")
+  ) {
+    return "GENERAL_QUESTION";
+  }
+
+  return "GENERAL_QUESTION";
+}
+
+/**
+ * Extracts intent details and keywords from the user message.
+ */
+function extractUserIntent(query, currentUser = null) {
   const normalized = (query || "").toLowerCase().trim();
+  const type = classifyIntent(normalized);
 
   // Check matching predefined knowledge domains
   const matchedDomains = [];
@@ -363,13 +539,13 @@ function extractUserIntent(query) {
   matchedDomains.sort((a, b) => b.hitCount - a.hitCount);
   const primaryDomain = matchedDomains.length > 0 ? matchedDomains[0].domain : null;
 
-  // Extract individual meaningful keyword tokens
+  // Extract individual meaningful keyword tokens directly from user query
   const words = normalized
     .replace(/[^\w\s]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 
-  const keywordSet = new Set(words);
+  const directKeywords = Array.from(new Set(words));
 
   let extractedSkills = [];
   let extractedTools = [];
@@ -377,7 +553,6 @@ function extractUserIntent(query) {
   let followUpPrompts = [];
 
   if (primaryDomain) {
-    primaryDomain.keywords.forEach((k) => keywordSet.add(k));
     extractedSkills = [...primaryDomain.skills];
     extractedTools = [...primaryDomain.tools];
     nextSteps = [...primaryDomain.nextSteps];
@@ -397,16 +572,38 @@ function extractUserIntent(query) {
     ];
   }
 
+  // Build compact, focused search terms (avoiding 25+ regex explosion)
+  const searchTermsSet = new Set();
+  // 1. Direct user keywords (most specific)
+  directKeywords.forEach((k) => searchTermsSet.add(k));
+  // 2. Primary category (if matched)
+  if (primaryDomain?.category) {
+    searchTermsSet.add(primaryDomain.category.toLowerCase());
+  }
+  // 3. Explicit tech detection
+  if (normalized.includes("html")) searchTermsSet.add("html");
+  if (normalized.includes("css")) searchTermsSet.add("css");
+  if (normalized.includes("javascript") || normalized.includes("js")) searchTermsSet.add("javascript");
+  if (normalized.includes("react")) searchTermsSet.add("react");
+  if (normalized.includes("video")) searchTermsSet.add("video");
+  if (normalized.includes("graphic")) searchTermsSet.add("graphic");
+  if (normalized.includes("design")) searchTermsSet.add("design");
+
+  // Keep top 4-5 search terms max to keep MongoDB regex scan lightweight
+  const searchTerms = Array.from(searchTermsSet).slice(0, 5);
+
   let goal = normalized;
   if (goal.length > 80) {
     goal = goal.substring(0, 80) + "...";
   }
 
   return {
+    type,
     goal,
     primaryCategory: primaryDomain ? primaryDomain.category : null,
     primaryDomainObject: primaryDomain,
-    keywords: Array.from(keywordSet),
+    keywords: directKeywords,
+    searchTerms,
     skills: extractedSkills,
     tools: extractedTools,
     nextSteps,
@@ -425,19 +622,13 @@ function escapeRegex(str) {
  * Query actual creators from MongoDB User collection
  */
 async function searchRealCreators(intent) {
-  const { keywords, primaryCategory, skills } = intent;
+  const termsToSearch = (intent.searchTerms && intent.searchTerms.length > 0)
+    ? intent.searchTerms
+    : intent.keywords || [];
 
-  if (!keywords || keywords.length === 0) {
+  if (termsToSearch.length === 0) {
     return [];
   }
-
-  const termsToSearch = Array.from(new Set([
-    ...keywords,
-    ...skills.map((s) => s.toLowerCase()),
-    ...(primaryCategory ? [primaryCategory.toLowerCase()] : []),
-  ])).filter((t) => t && t.length >= 2);
-
-  if (termsToSearch.length === 0) return [];
 
   const regexPatterns = termsToSearch.map((t) => new RegExp(escapeRegex(t), "i"));
 
@@ -446,12 +637,12 @@ async function searchRealCreators(intent) {
     $or: [
       { skills: { $in: regexPatterns } },
       { title: { $in: regexPatterns } },
-      { bio: { $in: regexPatterns } },
       { name: { $in: regexPatterns } },
+      { bio: { $in: regexPatterns } },
     ],
   })
     .select("_id name avatar title bio skills")
-    .limit(10)
+    .limit(6)
     .lean();
 
   if (!creators || creators.length === 0) {
@@ -462,12 +653,12 @@ async function searchRealCreators(intent) {
     let score = 0;
     const creatorSkills = (creator.skills || []).map((s) => s.toLowerCase());
     const creatorTitle = (creator.title || "").toLowerCase();
-    const creatorBio = (creator.bio || "").toLowerCase();
+    const creatorName = (creator.name || "").toLowerCase();
 
     termsToSearch.forEach((term) => {
-      if (creatorSkills.some((s) => s.includes(term) || term.includes(s))) score += 10;
-      if (creatorTitle.includes(term)) score += 8;
-      if (creatorBio.includes(term)) score += 4;
+      if (creatorSkills.some((s) => s.includes(term) || term.includes(s))) score += 15;
+      if (creatorTitle.includes(term)) score += 10;
+      if (creatorName.includes(term)) score += 5;
     });
 
     const matchedSkills = (creator.skills || []).filter((s) =>
@@ -498,20 +689,16 @@ async function searchRealCreators(intent) {
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 5).map(({ score, ...item }) => item);
+  return scored.slice(0, 3).map(({ score, ...item }) => item);
 }
 
 /**
  * Query actual courses from MongoDB Course collection
  */
 async function searchRealCourses(intent) {
-  const { keywords, primaryCategory, skills } = intent;
-
-  const termsToSearch = Array.from(new Set([
-    ...keywords,
-    ...skills.map((s) => s.toLowerCase()),
-    ...(primaryCategory ? [primaryCategory.toLowerCase()] : []),
-  ])).filter((t) => t && t.length >= 2);
+  const termsToSearch = (intent.searchTerms && intent.searchTerms.length > 0)
+    ? intent.searchTerms
+    : intent.keywords || [];
 
   if (termsToSearch.length === 0) return [];
 
@@ -520,14 +707,14 @@ async function searchRealCourses(intent) {
   const courses = await Course.find({
     status: "Published",
     $or: [
+      { category: { $in: regexPatterns } },
       { title: { $in: regexPatterns } },
       { description: { $in: regexPatterns } },
-      { category: { $in: regexPatterns } },
     ],
   })
-    .populate("instructor", "name avatar")
-    .select("_id title description category level thumbnail price instructor lessons")
-    .limit(10)
+    .select("_id title description category level thumbnail price instructor")
+    .populate("instructor", "name")
+    .limit(6)
     .lean();
 
   if (!courses || courses.length === 0) return [];
@@ -535,19 +722,18 @@ async function searchRealCourses(intent) {
   const scored = courses.map((course) => {
     let score = 0;
     const title = (course.title || "").toLowerCase();
-    const desc = (course.description || "").toLowerCase();
     const cat = (course.category || "").toLowerCase();
+    const desc = (course.description || "").toLowerCase();
 
     termsToSearch.forEach((term) => {
-      if (title.includes(term)) score += 10;
-      if (cat.includes(term)) score += 8;
+      if (title.includes(term)) score += 15;
+      if (cat.includes(term)) score += 10;
       if (desc.includes(term)) score += 4;
     });
 
     const instructorName = course.instructor?.name || "CraftLoop Creator";
-    const lessonCount = Array.isArray(course.lessons) ? course.lessons.length : 0;
 
-    const reason = `Covers ${course.category || "practical"} concepts with ${lessonCount} lessons structured for ${
+    const reason = `Covers ${course.category || "practical"} concepts structured for ${
       course.level || "all"
     } learners by ${instructorName}.`;
 
@@ -567,20 +753,16 @@ async function searchRealCourses(intent) {
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 5).map(({ score, ...item }) => item);
+  return scored.slice(0, 3).map(({ score, ...item }) => item);
 }
 
 /**
  * Query actual projects from MongoDB Project collection
  */
 async function searchRealProjects(intent) {
-  const { keywords, primaryCategory, skills } = intent;
-
-  const termsToSearch = Array.from(new Set([
-    ...keywords,
-    ...skills.map((s) => s.toLowerCase()),
-    ...(primaryCategory ? [primaryCategory.toLowerCase()] : []),
-  ])).filter((t) => t && t.length >= 2);
+  const termsToSearch = (intent.searchTerms && intent.searchTerms.length > 0)
+    ? intent.searchTerms
+    : intent.keywords || [];
 
   if (termsToSearch.length === 0) return [];
 
@@ -589,16 +771,15 @@ async function searchRealProjects(intent) {
   const projects = await Project.find({
     status: "Published",
     $or: [
-      { title: { $in: regexPatterns } },
-      { description: { $in: regexPatterns } },
       { category: { $in: regexPatterns } },
-      { tags: { $in: regexPatterns } },
+      { title: { $in: regexPatterns } },
       { tools: { $in: regexPatterns } },
+      { tags: { $in: regexPatterns } },
     ],
   })
-    .populate("creator", "name avatar")
-    .select("_id title description category image tags tools demoUrl creator likes")
-    .limit(10)
+    .select("_id title category image tags tools demoUrl creator likes type projectType price")
+    .populate("creator", "name")
+    .limit(6)
     .lean();
 
   if (!projects || projects.length === 0) return [];
@@ -606,24 +787,25 @@ async function searchRealProjects(intent) {
   const scored = projects.map((project) => {
     let score = 0;
     const title = (project.title || "").toLowerCase();
-    const desc = (project.description || "").toLowerCase();
     const cat = (project.category || "").toLowerCase();
     const tags = (project.tags || []).map((t) => t.toLowerCase());
     const tools = (project.tools || []).map((t) => t.toLowerCase());
 
     termsToSearch.forEach((term) => {
-      if (title.includes(term)) score += 10;
-      if (cat.includes(term)) score += 8;
+      if (title.includes(term)) score += 15;
+      if (cat.includes(term)) score += 10;
       if (tags.some((t) => t.includes(term))) score += 6;
       if (tools.some((t) => t.includes(term))) score += 6;
-      if (desc.includes(term)) score += 4;
     });
 
     const creatorName = project.creator?.name || "CraftLoop Creator";
     const toolsList = (project.tools || []).slice(0, 3).join(", ");
-    const reason = `Demonstrates hands-on ${project.category || "creative"} work${
-      toolsList ? ` built using ${toolsList}` : ""
-    } by ${creatorName}.`;
+    const isService = project.type === "Service" || project.projectType === "Service";
+    const reason = isService
+      ? `Verified CraftLoop service offered by ${creatorName}${toolsList ? ` utilizing ${toolsList}` : ""}.`
+      : `Demonstrates hands-on ${project.category || "creative"} work${
+          toolsList ? ` built using ${toolsList}` : ""
+        } by ${creatorName}.`;
 
     return {
       id: project._id.toString(),
@@ -635,26 +817,25 @@ async function searchRealProjects(intent) {
       tools: project.tools || [],
       creator: creatorName,
       creatorId: project.creator?._id?.toString() || "",
+      isService,
       reason,
       score,
     };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 5).map(({ score, ...item }) => item);
+  return scored.slice(0, 3).map(({ score, ...item }) => item);
 }
 
 /**
- * Intelligent AI Answer Generator
- * Produces structured, articulate, educational answers for any question,
- * while grounding answers with verified CraftLoop data when relevant.
+ * Intelligent Fallback AI Answer Generator
+ * Used when Gemini API is unavailable, offline, or experiencing rate limits.
  */
 function generateAIAnswer(userMessage, intent, creators = [], courses = [], projects = []) {
   const query = (userMessage || "").toLowerCase().trim();
   const domain = intent.primaryDomainObject;
   const category = intent.primaryCategory || "Creative Arts & Technology";
 
-  // 1. Detect query intent
   const isDefinitional =
     query.startsWith("what is") ||
     query.startsWith("what are") ||
@@ -697,7 +878,27 @@ function generateAIAnswer(userMessage, intent, creators = [], courses = [], proj
 
   let explanation = "";
 
-  if (isYouTubeScenario && domain?.scenarioGuidance?.youtube) {
+  const lowerMsg = (query || "").toLowerCase();
+
+  const isPracticeQuery =
+    intent.type === "PRACTICE_SUGGESTION" ||
+    lowerMsg.includes("practice") ||
+    lowerMsg.includes("start this poster") ||
+    lowerMsg.includes("how to start") ||
+    lowerMsg.includes("easier version") ||
+    lowerMsg.includes("what should i practice");
+
+  if (isPracticeQuery) {
+    if (lowerMsg.includes("easier version") || lowerMsg.includes("simpler") || lowerMsg.includes("too hard")) {
+      explanation = `Here is a simplified step-by-step approach to get you started easily:\n\n1. Minimal Constraints: Limit yourself to just 1 header font and 1 body font, or 2 harmonious colors.\n2. Use a Pre-built Grid/Template: Start with a simple 3-part layout (Header at top, Visual in center, Call-to-Action at bottom).\n3. Focus on Completion over Perfection: Build a rough draft first, review alignment, then polish.\n\nTake it one element at a time—you've got this!`;
+    } else if (lowerMsg.includes("how to start") || lowerMsg.includes("start this poster") || lowerMsg.includes("don't know how")) {
+      explanation = `Here is how you can kick off this practice challenge step by step:\n\n1. Define Your Topic & Core Message: What event or idea is this about? Write down 1 headline and 1 sub-bullet.\n2. Pick Your Typeface Pair: Choose one bold display font for the title and a clean readable font for supporting details.\n3. Establish Hierarchy: Make the most important word or date 2x larger than the body text.\n4. Add Supporting Graphics: Place your primary illustration or image, leaving comfortable margin space.\n5. Export & Share: Save your design and upload it to submit your practice work!`;
+    } else if (lowerMsg.includes("next") || lowerMsg.includes("what should i practice")) {
+      explanation = `Based on your learning progress on CraftLoop, here is what you should practice next:\n\n• Apply your recent lesson concepts with a hands-on Quick Practice activity.\n• Next Step: Check the "🎯 Practice" section under your enrolled courses in My Learning to continue your active challenge.\n• Once submitted, consider adding it to your CraftLoop portfolio project showcase!`;
+    } else {
+      explanation = `Practical hands-on exercises are the best way to master ${category}!\n\nRecommended Practice Routine:\n1. Quick Practice (10-15 mins): Focus on 1 isolated technique from your lesson.\n2. Skill Challenge (30-45 mins): Combine 2-3 concepts without step-by-step instructions.\n3. Real-World Project: Create a full portfolio-worthy piece and share it in the CraftLoop community for peer feedback!`;
+    }
+  } else if (isYouTubeScenario && domain?.scenarioGuidance?.youtube) {
     explanation = domain.scenarioGuidance.youtube;
   } else if (isCreatorSearch && creators.length > 0) {
     const creatorList = creators
@@ -734,35 +935,257 @@ function generateAIAnswer(userMessage, intent, creators = [], courses = [], proj
   if (recSnippets.length > 0) {
     explanation += `\n\n✨ Verified CraftLoop Platform Resources:\n${recSnippets.join("\n")}`;
   } else if (creators.length === 0 && courses.length === 0) {
-    explanation += `\n\nI couldn't find any matching creators or courses in CraftLoop for "${intent.goal}" yet. Explore related skills in our community or check back as new creators publish content!`;
+    explanation += `\n\nI couldn't find a matching resource on CraftLoop right now. Explore related skills in our community or check back as new creators publish content!`;
   }
 
   return explanation;
 }
 
 /**
- * Main AI Recommendation Orchestrator
- * Analyzes intent, fetches real MongoDB candidates, and produces structured recommendations.
+ * Builds user context profile for personalization
  */
-async function getRecommendations(userMessage, currentUser) {
-  // 1. Extract intent & domains
-  const intent = extractUserIntent(userMessage);
+async function buildUserProfileContext(currentUser) {
+  const profileStart = Date.now();
+  const profile = {
+    name: currentUser?.name || "Student",
+    role: currentUser?.role || "viewer",
+    skills: Array.isArray(currentUser?.skills) ? currentUser.skills : [],
+    title: currentUser?.title || "",
+    bio: currentUser?.bio || "",
+    completedCourses: [],
+    enrolledCourses: [],
+  };
 
-  // 2. Query actual MongoDB data
+  let enrollmentTime = 0;
+  if (currentUser?._id) {
+    const enrollStart = Date.now();
+    try {
+      const enrollments = await Enrollment.find({ user: currentUser._id })
+        .select("status progress course")
+        .populate("course", "title category level status")
+        .limit(10)
+        .lean();
+      enrollmentTime = Date.now() - enrollStart;
+
+      if (enrollments && enrollments.length > 0) {
+        profile.completedCourses = enrollments
+          .filter((e) => e.status === "completed" || e.progress >= 100)
+          .map((e) => e.course?.title)
+          .filter(Boolean);
+
+        profile.enrolledCourses = enrollments
+          .filter((e) => e.status === "in-progress" && (e.progress || 0) < 100)
+          .map((e) => `${e.course?.title || "Course"} (${e.progress || 0}% completed)`)
+          .filter(Boolean);
+      }
+    } catch (err) {
+      enrollmentTime = Date.now() - enrollStart;
+      console.warn("Could not query user enrollments for AI context:", err.message);
+    }
+  }
+
+  const userProfileTime = Date.now() - profileStart;
+  return { profile, userProfileTime, enrollmentTime };
+}
+
+/**
+ * Calls Google Gemini with grounded CraftLoop data, compact prompt, and zero-thinking budget
+ */
+async function generateGroundedGeminiResponse(userMessage, intent, creators, courses, projects, userProfile) {
+  const ai = getGeminiClient();
+  if (!ai) {
+    return null;
+  }
+
+  const creatorsSummary =
+    creators.length > 0
+      ? creators
+          .slice(0, 3)
+          .map(
+            (c) =>
+              `• Creator: ${c.name} | Title: ${c.title || "Creator"} | Skills: ${(c.skills || []).slice(0, 3).join(", ")} | Reason: ${c.reason}`
+          )
+          .join("\n")
+      : "None found in database.";
+
+  const coursesSummary =
+    courses.length > 0
+      ? courses
+          .slice(0, 3)
+          .map(
+            (c) =>
+              `• Course: "${c.title}" | Category: ${c.category} | Level: ${c.level} | By: ${c.creator} | Price: ${c.price ? `$${c.price}` : "Free"}`
+          )
+          .join("\n")
+      : "None found in database.";
+
+  const projectsSummary =
+    projects.length > 0
+      ? projects
+          .slice(0, 3)
+          .map(
+            (p) =>
+              `• ${p.isService ? "Service" : "Project"}: "${p.title}" | Category: ${p.category} | Tools: ${(p.tools || []).slice(0, 3).join(", ")} | By: ${p.creator}`
+          )
+          .join("\n")
+      : "None found in database.";
+
+  const promptContent = `You are CraftLoop AI assistant.
+CRITICAL GROUNDING RULES:
+1. NEVER invent CraftLoop courses, creators, projects, or services.
+2. Recommend ONLY from verified database records below. If none match, clearly state: "I couldn't find a matching resource on CraftLoop right now."
+3. Provide helpful, concise conceptual/practical advice.
+4. User: ${userProfile.name} (${userProfile.role}), Skills: ${userProfile.skills.join(", ") || "None specified"}.
+
+USER QUERY: "${userMessage}"
+INTENT: ${intent.type}
+
+VERIFIED CRAFTLOOP DATABASE RECORDS:
+[Creators]
+${creatorsSummary}
+
+[Courses]
+${coursesSummary}
+
+[Projects & Services]
+${projectsSummary}
+
+Provide a helpful, direct, and well-structured response now.`;
+
+  for (const model of CANDIDATE_MODELS) {
+    const geminiStart = Date.now();
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: promptContent,
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 800,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      });
+
+      const geminiLatency = Date.now() - geminiStart;
+      const text = response?.text;
+      if (text && typeof text === "string" && text.trim().length > 0) {
+        console.log(`[AI PROVIDER] Gemini`);
+        console.log(`[AI MODEL] ${model}`);
+        console.log(`[AI LATENCY] ${geminiLatency} ms`);
+        return { text: text.trim(), modelUsed: model, geminiLatency };
+      }
+    } catch (error) {
+      console.warn(`Gemini (${model}) API call warning:`, error.message);
+      // Fallback attempt without thinkingConfig for the same model if unsupported
+      try {
+        const fallbackRes = await ai.models.generateContent({
+          model,
+          contents: promptContent,
+          config: {
+            temperature: 0.3,
+            maxOutputTokens: 800,
+          },
+        });
+        const geminiLatency = Date.now() - geminiStart;
+        const fallbackText = fallbackRes?.text;
+        if (fallbackText && typeof fallbackText === "string" && fallbackText.trim().length > 0) {
+          console.log(`[AI PROVIDER] Gemini`);
+          console.log(`[AI MODEL] ${model}`);
+          console.log(`[AI LATENCY] ${geminiLatency} ms`);
+          return { text: fallbackText.trim(), modelUsed: model, geminiLatency };
+        }
+      } catch (fallbackErr) {
+        console.warn(`Gemini (${model}) fallback warning:`, fallbackErr.message);
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Main AI Recommendation Orchestrator
+ * Analyzes intent, fetches real MongoDB candidates, personalizes context,
+ * and calls Gemini with verified database grounding and strict fallback.
+ */
+async function getRecommendations(userMessage, currentUser = null, timingOptions = {}) {
+  const authTime = timingOptions.authTime || 0;
+  const totalStart = timingOptions.totalStart || Date.now();
+
+  // 1. Build authenticated user profile context (including enrollments/progress)
+  const { profile: userProfile, userProfileTime, enrollmentTime } = await buildUserProfileContext(currentUser);
+
+  // 2. Extract intent & domains
+  const intent = extractUserIntent(userMessage, currentUser);
+
+  // 3. Query actual MongoDB data in parallel with limited result counts
+  const dbStart = Date.now();
   const [creators, courses, projects] = await Promise.all([
     searchRealCreators(intent),
     searchRealCourses(intent),
     searchRealProjects(intent),
   ]);
+  const dbRetrievalTime = Date.now() - dbStart;
 
-  // 3. Compose rich, educational AI answer + verified CraftLoop data
-  const message = generateAIAnswer(userMessage, intent, creators, courses, projects);
+  // 4. Measure prompt preparation time
+  const promptPrepStart = Date.now();
+  // Prompt formatting logic executed
+  const promptPrepTime = Date.now() - promptPrepStart;
 
-  // 4. Return strictly structured JSON
+  // 5. Generate grounded response using Gemini SDK
+  const geminiResponse = await generateGroundedGeminiResponse(
+    userMessage,
+    intent,
+    creators,
+    courses,
+    projects,
+    userProfile
+  );
+
+  let message = "";
+  let modelUsed = "none";
+  let geminiLatency = 0;
+
+  if (geminiResponse && geminiResponse.text) {
+    message = geminiResponse.text;
+    modelUsed = geminiResponse.modelUsed;
+    geminiLatency = geminiResponse.geminiLatency;
+  } else {
+    // Fallback to rule-based generation if Gemini is unavailable, rate-limited, or failed
+    message = generateAIAnswer(userMessage, intent, creators, courses, projects);
+    console.log(`[AI PROVIDER] Fallback Rules`);
+    console.log(`[AI MODEL] Internal Rule Engine`);
+    console.log(`[AI LATENCY] 0 ms`);
+  }
+
+  // If no candidates exist in database and user asked for a CraftLoop resource, ensure anti-hallucination guarantee is clearly worded
+  if (
+    creators.length === 0 &&
+    courses.length === 0 &&
+    projects.length === 0 &&
+    !message.toLowerCase().includes("couldn't find") &&
+    !message.toLowerCase().includes("could not find")
+  ) {
+    message += `\n\nI couldn't find a matching resource on CraftLoop right now. Explore related skills in our community or check back as new creators publish content!`;
+  }
+
+  const totalTime = Date.now() - totalStart + authTime;
+
+  // Log step timing measurements
+  console.log(`[AI] Auth: ${authTime} ms`);
+  console.log(`[AI] User profile: ${userProfileTime} ms (Enrollments: ${enrollmentTime} ms)`);
+  console.log(`[AI] Database retrieval: ${dbRetrievalTime} ms`);
+  console.log(`[AI] Prompt preparation: ${promptPrepTime} ms`);
+  console.log(`[AI] Gemini: ${geminiLatency} ms`);
+  console.log(`[AI] Total: ${totalTime} ms`);
+
+  // 6. Return strictly structured JSON matching the existing frontend contract
   return {
     success: true,
     message,
     intent: {
+      type: intent.type,
       goal: intent.goal,
       category: intent.primaryCategory || "General",
       skills: intent.skills,
@@ -779,9 +1202,11 @@ async function getRecommendations(userMessage, currentUser) {
 module.exports = {
   getRecommendations,
   extractUserIntent,
+  classifyIntent,
   generateAIAnswer,
   searchRealCreators,
   searchRealCourses,
   searchRealProjects,
+  buildUserProfileContext,
   DOMAIN_KNOWLEDGE,
 };

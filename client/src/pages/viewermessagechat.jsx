@@ -7,103 +7,35 @@ function ViewerMessageChat() {
   const navigate = useNavigate()
   const { userId } = useParams()
 
-  const fallbackUsers = {
-    1: {
-      name: 'Alex Morgan',
-      username: '@alexmorgan',
-      skill: 'UI UX Designer',
-      image: 'https://i.pravatar.cc/100?img=11',
-      messages: [
-        {
-          id: 1,
-          sender: 'creator',
-          text: 'Hi. Thanks for checking out my project.',
-          time: '10:25 AM',
-        },
-        {
-          id: 2,
-          sender: 'viewer',
-          text: 'Your project looks really interesting.',
-          time: '10:28 AM',
-        },
-        {
-          id: 3,
-          sender: 'creator',
-          text: 'Thanks for checking out my project.',
-          time: '10:30 AM',
-        },
-      ],
-    },
-
-    2: {
-      name: 'Sarah Wilson',
-      username: '@sarahwilson',
-      skill: 'Graphic Designer',
-      image: 'https://i.pravatar.cc/100?img=12',
-      messages: [
-        {
-          id: 1,
-          sender: 'creator',
-          text: 'Hello. Are you interested in the course?',
-          time: 'Yesterday',
-        },
-        {
-          id: 2,
-          sender: 'viewer',
-          text: 'Yes. I would like to know more about it.',
-          time: 'Yesterday',
-        },
-        {
-          id: 3,
-          sender: 'creator',
-          text: 'I can share more details about the course.',
-          time: 'Yesterday',
-        },
-      ],
-    },
-
-    3: {
-      name: 'Daniel Smith',
-      username: '@danielsmith',
-      skill: 'Web Developer',
-      image: 'https://i.pravatar.cc/100?img=13',
-      messages: [
-        {
-          id: 1,
-          sender: 'viewer',
-          text: 'Hi Daniel. I have a question about your project.',
-          time: 'Monday',
-        },
-        {
-          id: 2,
-          sender: 'creator',
-          text: 'Sure. What would you like to know?',
-          time: 'Monday',
-        },
-        {
-          id: 3,
-          sender: 'creator',
-          text: 'Let me know if you need any help.',
-          time: 'Monday',
-        },
-      ],
-    },
-  }
-
-  const [partner, setPartner] = useState(fallbackUsers[userId] || null)
-  const [messages, setMessages] = useState(fallbackUsers[userId]?.messages || [])
+  const [partner, setPartner] = useState(null)
+  const [messages, setMessages] = useState([])
   const [message, setMessage] = useState('')
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        setLoading(true)
         const me = await api.getMe().catch(() => null)
         if (me && me.user) {
           setCurrentUserId(me.user._id)
         }
 
         if (userId && typeof userId === 'string' && userId.length === 24) {
+          // Fetch real creator profile
+          const creatorRes = await api.getCreatorById(userId).catch(() => null)
+          if (creatorRes && creatorRes.success && creatorRes.data) {
+            const c = creatorRes.data
+            setPartner({
+              name: c.name,
+              username: `@${c.email ? c.email.split('@')[0] : 'user'}`,
+              skill: c.title || (c.role === 'creator' ? 'Creator' : 'Viewer'),
+              image: c.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=7c3aed&color=fff`,
+            })
+          }
+
+          // Fetch real messages
           const res = await api.getConversation(userId).catch(() => null)
           if (res && res.success && Array.isArray(res.data)) {
             const myId = me?.user?._id
@@ -121,9 +53,9 @@ function ViewerMessageChat() {
             })
             setMessages(mapped)
 
-            // Extract partner info from first message
-            const firstMsg = res.data[0]
-            if (firstMsg) {
+            // If partner was not set yet, extract from first message
+            if (!partner && res.data[0]) {
+              const firstMsg = res.data[0]
               const other = (firstMsg.sender?._id === myId || firstMsg.sender === myId)
                 ? (firstMsg.recipient || firstMsg.receiver)
                 : firstMsg.sender
@@ -142,6 +74,8 @@ function ViewerMessageChat() {
         }
       } catch (err) {
         console.error('Failed to load chat data from backend:', err)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -193,15 +127,25 @@ function ViewerMessageChat() {
     }
   }, [userId, currentUserId])
 
-  const user = partner || fallbackUsers[userId]
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-purple-100 bg-white p-8 text-center text-gray-500">
+        Loading conversation...
+      </div>
+    )
+  }
+
+  const user = partner
 
   if (!user) {
     return (
       <div className="rounded-2xl border border-purple-100 bg-white p-8 text-center">
         <h1 className="text-xl font-bold text-gray-900">
-          Conversation not found
+          Creator not found
         </h1>
-
+        <p className="mt-2 text-sm text-gray-500">
+          This creator account may have been removed or does not exist.
+        </p>
         <button
           type="button"
           onClick={() => navigate('/viewermessages')}
@@ -299,10 +243,17 @@ function ViewerMessageChat() {
 
 
         <div className="min-h-[500px] space-y-4 bg-[#faf9ff] p-6">
-
-          {allMessages.map((item) => {
-
-            const isViewer = item.sender === 'viewer'
+          {allMessages.length === 0 ? (
+            <div className="flex h-[400px] flex-col items-center justify-center text-center">
+              <div className="text-4xl">👋</div>
+              <p className="mt-3 font-semibold text-gray-700">Start the conversation</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Send a message to connect with {user.name}.
+              </p>
+            </div>
+          ) : (
+            allMessages.map((item) => {
+              const isViewer = item.sender === 'viewer'
 
             return (
               <div
@@ -338,7 +289,8 @@ function ViewerMessageChat() {
 
               </div>
             )
-          })}
+          })
+        )}
 
         </div>
 

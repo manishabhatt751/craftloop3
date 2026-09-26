@@ -233,4 +233,77 @@ async function seedDataIfEmpty() {
   }
 }
 
-module.exports = { seedDataIfEmpty, SEED_IDS };
+/**
+ * Safely removes ONLY artificial seed records (by explicit SEED_IDS & demo emails).
+ * STRICTLY PRESERVES all legitimate real user-created accounts, projects, and courses.
+ */
+async function cleanSeedDataOnly() {
+  try {
+    const seedUserIds = [
+      SEED_IDS.viewerUser,
+      SEED_IDS.creatorUser,
+      SEED_IDS.videoCreator,
+      SEED_IDS.designCreator,
+      SEED_IDS.uiCreator,
+      SEED_IDS.devCreator,
+    ];
+
+    const seedCourseIds = [
+      SEED_IDS.videoCourse,
+      SEED_IDS.designCourse,
+      SEED_IDS.uiCourse,
+      SEED_IDS.devCourse,
+    ];
+
+    const seedProjectIds = [
+      SEED_IDS.videoProject,
+      SEED_IDS.designProject,
+      SEED_IDS.uiProject,
+      SEED_IDS.devProject,
+    ];
+
+    const demoEmails = [
+      "viewer@craftloop.com",
+      "creator@craftloop.com",
+      "jordan@craftloop.com",
+      "elena@craftloop.com",
+      "alex@craftloop.com",
+      "sarah@craftloop.com",
+    ];
+
+    const removedUsers = await User.deleteMany({
+      $or: [
+        { _id: { $in: seedUserIds } },
+        { email: { $in: demoEmails } },
+      ],
+    });
+
+    const removedCourses = await Course.deleteMany({
+      $or: [
+        { _id: { $in: seedCourseIds } },
+        { instructor: { $in: seedUserIds } },
+        { creator: { $in: seedUserIds } },
+      ],
+    });
+
+    const removedProjects = await Project.deleteMany({
+      $or: [
+        { _id: { $in: seedProjectIds } },
+        { creator: { $in: seedUserIds } },
+      ],
+    });
+
+    console.log("🧹 Seed clean-up complete:");
+    console.log(`   Removed ${removedUsers.deletedCount} seed users`);
+    console.log(`   Removed ${removedCourses.deletedCount} seed courses`);
+    console.log(`   Removed ${removedProjects.deletedCount} seed projects`);
+    console.log("   All real user accounts and real projects/courses strictly preserved.");
+    return { removedUsers, removedCourses, removedProjects };
+  } catch (error) {
+    console.error("Clean seed data error:", error.message);
+    throw error;
+  }
+}
+
+module.exports = { seedDataIfEmpty, cleanSeedDataOnly, SEED_IDS };
+

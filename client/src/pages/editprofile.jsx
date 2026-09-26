@@ -84,19 +84,62 @@ function EditProfile() {
 
     try {
       showToast('Uploading profile picture...', 'info')
-      const res = await api.uploadMedia(file, 'craftloop/avatars')
-      if (res && res.success && res.url) {
-        setFormData((prev) => ({ ...prev, avatar: res.url }))
-        showToast('Profile picture uploaded! Click Save Changes to apply.', 'success')
+      const res = await api.uploadAvatar(file)
+      const uploadedUrl =
+        res?.url || res?.secure_url || res?.avatar || res?.user?.avatar || res?.data?.avatar
+
+      if (res && res.success && uploadedUrl) {
+        setFormData((prev) => ({ ...prev, avatar: uploadedUrl }))
+
+        // Update local storage so current session immediately shows the new avatar
+        const currentUser = JSON.parse(localStorage.getItem('craftloop_user') || '{}')
+        localStorage.setItem(
+          'craftloop_user',
+          JSON.stringify({ ...currentUser, avatar: uploadedUrl })
+        )
+        if (isViewer) {
+          const currentViewerProfile = JSON.parse(localStorage.getItem('craftloopViewerProfile') || '{}')
+          localStorage.setItem(
+            'craftloopViewerProfile',
+            JSON.stringify({ ...currentViewerProfile, avatar: uploadedUrl })
+          )
+        } else {
+          const currentCreatorProfile = JSON.parse(localStorage.getItem('craftloopCreatorProfile') || '{}')
+          localStorage.setItem(
+            'craftloopCreatorProfile',
+            JSON.stringify({ ...currentCreatorProfile, avatar: uploadedUrl })
+          )
+        }
+
+        // Auto-save avatar URL to User document in MongoDB
+        try {
+          await api.updateProfile({ avatar: uploadedUrl })
+        } catch (_) {}
+
+        showToast('Profile picture uploaded successfully! Preview updated.', 'success')
       } else {
         throw new Error(res?.message || 'Profile picture upload failed.')
       }
     } catch (err) {
       console.error('Avatar upload failed:', err)
-      const errorMsg =
-        err?.status === 413 || (err?.message && err.message.toLowerCase().includes('large'))
-          ? 'File size exceeds limit. Please choose a smaller image.'
-          : (err.message || 'Profile picture upload failed. Please try again.')
+      let errorMsg = 'Profile picture upload failed. Please try again.'
+      if (err?.status === 413 || (err?.message && err.message.toLowerCase().includes('large'))) {
+        errorMsg = 'File exceeds maximum upload size limit (5 GB). Please choose a smaller image.'
+      } else if (err?.status === 400) {
+        errorMsg = err.message || 'Invalid image file or format.'
+      } else if (err?.status === 401) {
+        errorMsg = 'Your session has expired. Please log in again.'
+      } else if (err?.status === 403) {
+        errorMsg = 'You are not authorized to upload an avatar.'
+      } else if (err?.status === 404) {
+        errorMsg = 'Upload endpoint not found.'
+      } else if (err?.status === 500) {
+        errorMsg = err.message || 'Server error occurred during upload. Please try again.'
+      } else if (err?.status === 502) {
+        errorMsg = 'Upload proxy error (502). The server is temporarily unavailable.'
+      } else if (err?.message) {
+        errorMsg = err.message
+      }
       showToast(errorMsg, 'error')
     }
   }
@@ -231,12 +274,22 @@ function EditProfile() {
                     {formData.avatar ? (
                       <img
                         src={formData.avatar}
-                        alt={formData.name}
+                        alt={formData.name || 'Profile'}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextElementSibling) {
+                            e.currentTarget.nextElementSibling.style.display = 'flex';
+                          }
+                        }}
                         className="h-full w-full rounded-full object-cover"
                       />
-                    ) : (
-                      initials
-                    )}
+                    ) : null}
+                    <span
+                      style={{ display: formData.avatar ? 'none' : 'flex' }}
+                      className="h-full w-full items-center justify-center rounded-full font-bold"
+                    >
+                      {initials}
+                    </span>
                   </div>
 
                   <div>
@@ -411,12 +464,22 @@ function EditProfile() {
                 {formData.avatar ? (
                   <img
                     src={formData.avatar}
-                    alt={formData.name}
+                    alt={formData.name || 'Profile'}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                      }
+                    }}
                     className="h-full w-full rounded-full object-cover"
                   />
-                ) : (
-                  initials
-                )}
+                ) : null}
+                <span
+                  style={{ display: formData.avatar ? 'none' : 'flex' }}
+                  className="h-full w-full items-center justify-center rounded-full font-bold"
+                >
+                  {initials}
+                </span>
               </div>
 
               <h2>{formData.name}</h2>

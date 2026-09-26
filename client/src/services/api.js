@@ -27,12 +27,20 @@ export async function apiRequest(endpoint, options = {}) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
 
+  const mergedHeaders = {
+    ...defaultHeaders,
+    ...options.headers,
+  };
+
+  // NEVER set Content-Type header on FormData requests so browser calculates multipart boundary
+  if (options.body instanceof FormData) {
+    delete mergedHeaders['Content-Type'];
+    delete mergedHeaders['content-type'];
+  }
+
   const config = {
     ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
+    headers: mergedHeaders,
   };
 
   try {
@@ -45,7 +53,25 @@ export async function apiRequest(endpoint, options = {}) {
         localStorage.removeItem('craftloopToken');
         localStorage.removeItem('craftloop_token');
       }
-      const error = new Error((data && data.message) || `Request failed with status ${response.status}`);
+
+      let errorMsg = (data && data.message) || `Request failed with status ${response.status}`;
+      if (response.status === 413) {
+        errorMsg = 'File size exceeds server upload limit (5 GB maximum).';
+      } else if (response.status === 400) {
+        errorMsg = (data && data.message) || 'Invalid request or unsupported file format.';
+      } else if (response.status === 401) {
+        errorMsg = 'Authentication required or session expired. Please log in.';
+      } else if (response.status === 403) {
+        errorMsg = 'You do not have permission to perform this action.';
+      } else if (response.status === 404) {
+        errorMsg = (data && data.message) || 'Requested resource not found.';
+      } else if (response.status === 500) {
+        errorMsg = (data && data.message) || 'Internal server error. Please try again.';
+      } else if (response.status === 502) {
+        errorMsg = 'Server proxy or gateway error (502). The backend may still be starting.';
+      }
+
+      const error = new Error(errorMsg);
       error.status = response.status;
       error.data = data;
       throw error;
@@ -102,22 +128,33 @@ export const api = {
         localStorage.setItem('craftloopRole', user.role);
       }
       if (user.role === 'creator') {
-        const existing = localStorage.getItem('craftloopCreatorProfile');
-        if (!existing) {
-          localStorage.setItem(
-            'craftloopCreatorProfile',
-            JSON.stringify({
-              name: user.name,
-              username: user.email ? user.email.split('@')[0] : 'creator',
-              profession: user.title || 'Creator',
-              bio: user.bio || '',
-              skills: Array.isArray(user.skills)
-                ? user.skills.join(', ')
-                : (user.skills || 'UI/UX Design, Graphic Design, Branding'),
-              location: 'India',
-            })
-          );
-        }
+        const existing = JSON.parse(localStorage.getItem('craftloopCreatorProfile') || '{}');
+        localStorage.setItem(
+          'craftloopCreatorProfile',
+          JSON.stringify({
+            ...existing,
+            name: user.name || existing.name,
+            username: user.username || (user.email ? user.email.split('@')[0] : (existing.username || 'creator')),
+            profession: user.title || existing.profession || 'Creator',
+            bio: user.bio !== undefined ? user.bio : (existing.bio || ''),
+            skills: Array.isArray(user.skills)
+              ? user.skills.join(', ')
+              : (user.skills || existing.skills || 'UI/UX Design, Graphic Design, Branding'),
+            location: user.location || existing.location || 'India',
+            avatar: user.avatar !== undefined ? user.avatar : (existing.avatar || ''),
+          })
+        );
+      } else if (user.role === 'viewer') {
+        const existing = JSON.parse(localStorage.getItem('craftloopViewerProfile') || '{}');
+        localStorage.setItem(
+          'craftloopViewerProfile',
+          JSON.stringify({
+            ...existing,
+            name: user.name || existing.name || 'Viewer',
+            username: user.username || (user.email ? user.email.split('@')[0] : (existing.username || 'viewer')),
+            avatar: user.avatar !== undefined ? user.avatar : (existing.avatar || ''),
+          })
+        );
       }
     }
   },
@@ -128,6 +165,7 @@ export const api = {
     localStorage.removeItem('craftloop_user');
     localStorage.removeItem('craftloopRole');
     localStorage.removeItem('craftloopCreatorProfile');
+    localStorage.removeItem('craftloopViewerProfile');
   },
   isAuthenticated: () =>
     Boolean(
@@ -159,6 +197,7 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return api.get(`/creators${query ? `?${query}` : ''}`);
   },
+  getCreatorById: (id) => api.get(`/creators/${id}`),
 
   // Courses
   getCourses: (params = {}) => {
@@ -185,6 +224,19 @@ export const api = {
   getMyLearning: () => api.get('/enrollments/me'),
   getMyEnrollment: (courseId) => api.get(`/enrollments/${courseId}`),
   updateLessonProgress: (courseId, data) => api.put(`/enrollments/${courseId}/progress`, data),
+
+  // Practices (Learning Journey)
+  getPracticesByCourse: (courseId) => api.get(`/practices/course/${courseId}`),
+  getPracticesByLesson: (lessonId, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/practices/lesson/${lessonId}${query ? `?${query}` : ''}`);
+  },
+  getPracticeById: (id) => api.get(`/practices/${id}`),
+  startPractice: (id) => api.post(`/practices/${id}/start`, {}),
+  submitPractice: (id, data) => api.post(`/practices/${id}/submit`, data),
+  sharePracticeToCommunity: (id, data = {}) => api.post(`/practices/${id}/share`, data),
+  getMyPractices: () => api.get('/practices/my'),
+  createPractice: (data) => api.post('/practices', data),
 
   // AI Recommendation Assistant
   sendAIChat: (message) => api.post('/ai/chat', { message }),
@@ -215,7 +267,17 @@ export const api = {
   uploadMedia: (file, folder = 'craftloop') => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('avatar', file);
     if (folder) formData.append('folder', folder);
+    return api.post('/upload', formData);
+  },
+
+  // Dedicated Avatar Upload
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    formData.append('file', file);
+    formData.append('folder', 'craftloop/avatars');
     return api.post('/upload', formData);
   },
 };

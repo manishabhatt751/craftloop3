@@ -69,14 +69,30 @@ const upload = multer({
   },
 });
 
+const uploadFields = upload.fields([
+  { name: "file", maxCount: 1 },
+  { name: "avatar", maxCount: 1 },
+  { name: "image", maxCount: 1 },
+]);
+
 // POST /api/upload
-// Accepts files up to 5000 MB (5 GB) per file
-router.post("/", protect, upload.single("file"), async (req, res) => {
+// Accepts files up to 5000 MB (5 GB) per file across 'file', 'avatar', or 'image' field
+router.post("/", protect, (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err) return next(err);
+    next();
+  });
+}, async (req, res) => {
   try {
-    if (!req.file) {
+    const file =
+      req.file ||
+      (req.files &&
+        (req.files.file?.[0] || req.files.avatar?.[0] || req.files.image?.[0]));
+
+    if (!file) {
       return res.status(400).json({
         success: false,
-        message: "Please provide a file to upload in the 'file' field.",
+        message: "Please provide a file to upload in the 'file' or 'avatar' field.",
       });
     }
 
@@ -84,17 +100,35 @@ router.post("/", protect, upload.single("file"), async (req, res) => {
     const host = req.get("host") || "localhost:5000";
     const protocol = req.protocol || "http";
 
-    const result = await uploadMedia(req.file, {
-      folder: folder || "craftloop/media",
+    const isAvatarUpload =
+      folder === "craftloop/avatars" ||
+      (req.files && Boolean(req.files.avatar?.[0])) ||
+      Boolean(req.originalUrl && req.originalUrl.includes("avatar"));
+
+    const result = await uploadMedia(file, {
+      folder: folder || (isAvatarUpload ? "craftloop/avatars" : "craftloop/media"),
       host,
       protocol,
     });
+
+    let updatedUser = null;
+    if (req.user && req.user._id && isAvatarUpload) {
+      const { User } = require("../models");
+      updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { avatar: result.url },
+        { returnDocument: "after" }
+      ).select("-password");
+    }
 
     return res.status(200).json({
       success: true,
       message: "File uploaded successfully.",
       url: result.url,
       secure_url: result.secure_url,
+      avatar: result.url,
+      user: updatedUser || (req.user ? { ...req.user.toObject(), avatar: result.url } : undefined),
+      data: updatedUser || { avatar: result.url },
       format: result.format,
       bytes: result.bytes,
       provider: result.provider,

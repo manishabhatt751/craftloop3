@@ -104,6 +104,9 @@ const normalizePost = (p, currentUserId) => {
     ? likesArr.some((id) => (id?._id || id)?.toString() === currentUserId?.toString())
     : false
 
+  const projectObj = typeof p.projectId === 'object' && p.projectId !== null ? p.projectId : null
+  const projectIdStr = projectObj?._id || (typeof p.projectId === 'string' ? p.projectId : null)
+
   return {
     id: p._id || p.id,
     _id: p._id || p.id,
@@ -115,6 +118,10 @@ const normalizePost = (p, currentUserId) => {
     time: formatTimeAgo(p.createdAt),
     content: p.content,
     image: p.image || null,
+    postType: p.postType || (projectIdStr ? 'project' : 'text'),
+    projectId: projectIdStr,
+    project: projectObj,
+    projectUrl: p.projectUrl || (projectIdStr ? `/project/${projectIdStr}` : null),
     likes: likesArr.length,
     liked: isLiked,
     saved: false,
@@ -169,6 +176,17 @@ function Community() {
     image: '',
   })
   const [imagePreview, setImagePreview] = useState('')
+
+  // Share My Work State
+  const [showShareWorkModal, setShowShareWorkModal] = useState(false)
+  const [myProjects, setMyProjects] = useState([])
+  const [loadingMyProjects, setLoadingMyProjects] = useState(false)
+  const [myProjectsError, setMyProjectsError] = useState(null)
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [shareProjectUrl, setShareProjectUrl] = useState('')
+  const [shareDescription, setShareDescription] = useState('')
+  const [submittingShareWork, setSubmittingShareWork] = useState(false)
+  const [projectSearchFilter, setProjectSearchFilter] = useState('')
 
   // Expanded comments section map: { [postId]: boolean }
   const [expandedComments, setExpandedComments] = useState({})
@@ -287,6 +305,116 @@ function Community() {
     setPermissionModal({ isOpen: false, title: '', message: '', actionType: null })
     setShowCreatePost(true)
     showToast('Creator permission granted! You can now publish posts.', 'success')
+  }
+
+  // Handle Opening "Share My Work" modal
+  const handleOpenShareWork = async () => {
+    if (userRole === 'viewer') {
+      setPermissionModal({
+        isOpen: true,
+        title: 'Creator Permission Required',
+        message:
+          'Only creators can share projects to the community. You are currently in Viewer mode.',
+        actionType: 'creator_role',
+      })
+      return
+    }
+
+    if (!api.isAuthenticated()) {
+      showToast('Please log in to share your projects.', 'warning')
+      return
+    }
+
+    setShowCreatePost(false)
+    setShowShareWorkModal(true)
+    setLoadingMyProjects(true)
+    setMyProjectsError(null)
+
+    try {
+      const res = await api.getProjects({ mine: 'true' })
+      if (res && res.success && Array.isArray(res.data)) {
+        setMyProjects(res.data)
+        if (res.data.length > 0) {
+          const first = res.data[0]
+          const firstId = first._id || first.id
+          setSelectedProjectId(firstId)
+          setShareProjectUrl(`${window.location.origin}/project/${firstId}`)
+        } else {
+          setSelectedProjectId('')
+          setShareProjectUrl('')
+        }
+      } else {
+        setMyProjects([])
+      }
+    } catch (err) {
+      console.error('Error fetching creator projects:', err)
+      setMyProjectsError('Could not load your projects from server.')
+      setMyProjects([])
+    } finally {
+      setLoadingMyProjects(false)
+    }
+  }
+
+  // Handle selecting a project in Share My Work
+  const handleSelectProject = (proj) => {
+    const projId = proj._id || proj.id
+    setSelectedProjectId(projId)
+    setShareProjectUrl(`${window.location.origin}/project/${projId}`)
+  }
+
+  // Handle submitting Share My Work post
+  const handleSubmitShareWork = async (e) => {
+    e.preventDefault()
+
+    if (!selectedProjectId && !shareProjectUrl.trim()) {
+      showToast('Please select a project to share.', 'warning')
+      return
+    }
+
+    const selectedProj = myProjects.find(
+      (p) => (p._id || p.id)?.toString() === selectedProjectId?.toString()
+    )
+
+    const finalContent =
+      shareDescription.trim() ||
+      (selectedProj
+        ? `Check out my project: ${selectedProj.title}`
+        : 'Check out my project on CraftLoop!')
+
+    setSubmittingShareWork(true)
+    try {
+      const payload = {
+        content: finalContent,
+        projectId: selectedProjectId || undefined,
+        projectUrl:
+          shareProjectUrl.trim() ||
+          (selectedProjectId ? `${window.location.origin}/project/${selectedProjectId}` : undefined),
+        postType: 'project',
+        category: selectedProj?.category || 'Design',
+        tags:
+          selectedProj?.tags && selectedProj.tags.length > 0
+            ? selectedProj.tags
+            : ['Project'],
+      }
+
+      const res = await api.createCommunityPost(payload)
+      if (res && res.success && res.data) {
+        const created = normalizePost(res.data, currentUserId)
+        setPosts((prev) => [created, ...prev])
+        setShowShareWorkModal(false)
+        setShareDescription('')
+        setSelectedProjectId('')
+        setShareProjectUrl('')
+        showToast('Project shared to community successfully!', 'success')
+      } else {
+        showToast(res?.message || 'Failed to share project.', 'error')
+      }
+    } catch (err) {
+      console.error('Error sharing work to community:', err)
+      showToast(err.message || 'Error sharing project to community.', 'error')
+    } finally {
+      setSubmittingShareWork(false)
+    }
   }
 
   // Media file handler for post creation
@@ -746,6 +874,16 @@ function Community() {
           </button>
 
           <button
+            id="share-work-btn"
+            onClick={handleOpenShareWork}
+            className="flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-5 py-3 font-semibold text-purple-700 transition hover:bg-purple-100 active:scale-95 shadow-xs"
+            title="Share a project you created in CraftLoop"
+          >
+            <span>✨</span>
+            <span>Share My Work</span>
+          </button>
+
+          <button
             id="create-post-btn"
             onClick={handleOpenCreatePost}
             className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-700 active:scale-95"
@@ -902,8 +1040,97 @@ function Community() {
                     {post.content}
                   </p>
 
+                  {/* Shared Project Preview Card */}
+                  {(post.postType === 'project' || post.projectId) && (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-purple-200/90 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-5 shadow-xs transition hover:shadow-md hover:border-purple-300">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                        {/* Thumbnail */}
+                        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-purple-100 sm:w-44 sm:flex-shrink-0">
+                          {post.project?.image || post.image ? (
+                            <img
+                              src={post.project?.image || post.image}
+                              alt={post.project?.title || 'Project'}
+                              className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-3xl">
+                              🎨
+                            </div>
+                          )}
+                          <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                            CraftLoop Project
+                          </span>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex flex-1 flex-col justify-between self-stretch">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-md bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                                {post.project?.category || post.category || 'Creative Work'}
+                              </span>
+                              {post.project?.status && (
+                                <span className="text-xs text-gray-400">• {post.project.status}</span>
+                              )}
+                            </div>
+
+                            <h4 className="mt-2 text-lg font-bold text-gray-900">
+                              {post.project?.title || 'Shared Project'}
+                            </h4>
+
+                            <p className="mt-1 line-clamp-2 text-sm leading-6 text-gray-600">
+                              {post.project?.description || 'Explore this creative project on CraftLoop.'}
+                            </p>
+
+                            {post.project?.tags && post.project.tags.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {post.project.tags.slice(0, 3).map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-between border-t border-purple-100/60 pt-3">
+                            <span className="text-xs font-medium text-purple-600">
+                              Shared from CraftLoop Portfolio
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetId = post.projectId || post.project?._id
+                                if (targetId) {
+                                  navigate(`/project/${targetId}`)
+                                } else if (post.projectUrl) {
+                                  const internalMatch = post.projectUrl.match(/\/project\/([a-zA-Z0-9]+)/)
+                                  if (internalMatch) {
+                                    navigate(`/project/${internalMatch[1]}`)
+                                  } else {
+                                    window.location.href = post.projectUrl
+                                  }
+                                }
+                              }}
+                              className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 active:scale-95"
+                            >
+                              <span>View Project</span>
+                              <span>→</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Optional Image */}
-                  {post.image && (
+                  {post.postType !== 'project' && post.image && (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-purple-50 bg-gray-50">
                       <img
                         src={post.image}
@@ -1293,6 +1520,246 @@ function Community() {
                   className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-700 active:scale-95"
                 >
                   Publish Post
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* On-Screen Share My Work Modal */}
+      {showShareWorkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
+              <div>
+                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                  ✨ Showcase Your Portfolio
+                </span>
+                <h2 className="mt-1 text-2xl font-bold text-gray-900">
+                  Share My Work in Community
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Select one of your CraftLoop projects to attach a rich preview card to your post.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowShareWorkModal(false)
+                  setShareDescription('')
+                }}
+                className="rounded-xl p-2 text-2xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitShareWork}>
+              {/* Project Selector */}
+              <div className="mb-5">
+                <label className="mb-2 flex items-center justify-between text-sm font-semibold text-gray-700">
+                  <span>Select Your Project</span>
+                  <span className="text-xs font-normal text-gray-400">
+                    {myProjects.length} project{myProjects.length === 1 ? '' : 's'} available
+                  </span>
+                </label>
+
+                {loadingMyProjects ? (
+                  <div className="rounded-2xl border border-purple-100 bg-purple-50/30 p-8 text-center">
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                    <p className="mt-2 text-xs font-semibold text-gray-500">
+                      Loading your projects from MongoDB...
+                    </p>
+                  </div>
+                ) : myProjectsError ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center">
+                    <p className="text-xs font-semibold text-red-600">{myProjectsError}</p>
+                    <button
+                      type="button"
+                      onClick={handleOpenShareWork}
+                      className="mt-2 rounded-lg bg-red-100 px-3 py-1 text-xs font-bold text-red-700 hover:bg-red-200"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : myProjects.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-purple-200 bg-purple-50/20 p-6 text-center">
+                    <span className="text-3xl">🎨</span>
+                    <h4 className="mt-2 text-sm font-bold text-gray-800">No Projects Found</h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      You haven't created any projects yet. Create your first project on CraftLoop to share it!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowShareWorkModal(false)
+                        navigate('/create')
+                      }}
+                      className="mt-4 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-purple-700 shadow-sm"
+                    >
+                      + Create a Project
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {myProjects.length > 3 && (
+                      <input
+                        type="text"
+                        value={projectSearchFilter}
+                        onChange={(e) => setProjectSearchFilter(e.target.value)}
+                        placeholder="Filter your projects by title or category..."
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs outline-none focus:border-purple-400 focus:bg-white"
+                      />
+                    )}
+
+                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                      {myProjects
+                        .filter(
+                          (p) =>
+                            !projectSearchFilter ||
+                            p.title?.toLowerCase().includes(projectSearchFilter.toLowerCase()) ||
+                            p.category?.toLowerCase().includes(projectSearchFilter.toLowerCase())
+                        )
+                        .map((p) => {
+                          const pid = p._id || p.id
+                          const isSelected = selectedProjectId?.toString() === pid?.toString()
+
+                          return (
+                            <div
+                              key={pid}
+                              onClick={() => handleSelectProject(p)}
+                              className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${
+                                isSelected
+                                  ? 'border-purple-600 bg-purple-50/60 shadow-xs ring-1 ring-purple-600'
+                                  : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50/20'
+                              }`}
+                            >
+                              {/* Thumbnail */}
+                              <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-purple-100">
+                                {p.image ? (
+                                  <img
+                                    src={p.image}
+                                    alt={p.title}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none'
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-lg">
+                                    🎨
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Title, Category, Desc */}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                                    {p.category || 'General'}
+                                  </span>
+                                  {p.status && (
+                                    <span className="text-[10px] text-gray-400">
+                                      • {p.status}
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 className="mt-1 truncate text-sm font-bold text-gray-900">
+                                  {p.title}
+                                </h4>
+                                <p className="truncate text-xs text-gray-500">
+                                  {p.description || 'CraftLoop portfolio project.'}
+                                </p>
+                              </div>
+
+                              {/* Radio indicator */}
+                              <div className="flex-shrink-0 px-2">
+                                <div
+                                  className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                    isSelected
+                                      ? 'border-purple-600 bg-purple-600 text-white'
+                                      : 'border-gray-300 bg-white'
+                                  }`}
+                                >
+                                  {isSelected && <span className="text-[10px] font-bold">✓</span>}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Link Input */}
+              <div className="mb-4">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Project Link (CraftLoop URL)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-2.5 text-xs text-gray-500">
+                    🔗
+                  </span>
+                  <input
+                    type="text"
+                    value={shareProjectUrl}
+                    onChange={(e) => setShareProjectUrl(e.target.value)}
+                    placeholder="http://localhost:5174/project/..."
+                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-xs outline-none transition focus:border-purple-400 focus:bg-white"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Auto-attached CraftLoop project URL.
+                </p>
+              </div>
+
+              {/* Description / Message */}
+              <div className="mb-6">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Optional Description
+                </label>
+                <textarea
+                  value={shareDescription}
+                  onChange={(e) => setShareDescription(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Here is the project I created on CraftLoop! Check it out and let me know your thoughts..."
+                  className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100"
+                />
+                <p className="mt-1 text-right text-xs text-gray-400">
+                  {shareDescription.length}/1000
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowShareWorkModal(false)
+                    setShareDescription('')
+                  }}
+                  className="rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-600 transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={submittingShareWork || (!selectedProjectId && !shareProjectUrl.trim())}
+                  className="rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-700 disabled:opacity-50 active:scale-95 flex items-center gap-2"
+                >
+                  {submittingShareWork ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Sharing...</span>
+                    </>
+                  ) : (
+                    <span>Share to Community</span>
+                  )}
                 </button>
               </div>
             </form>

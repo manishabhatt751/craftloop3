@@ -1,21 +1,59 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 function Share() {
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [message, setMessage] = useState('')
 
-  const savedProfile = JSON.parse(
-    localStorage.getItem('craftloopCreatorProfile') || 'null'
-  )
+  const [profile, setProfile] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
+    return {
+      name: storedUser?.name || 'Creator',
+      username: storedUser?.email ? storedUser.email.split('@')[0] : 'creator',
+      bio: storedUser?.bio || 'Creator on CraftLoop.',
+      profession: storedUser?.title || 'Creator',
+      avatar: storedUser?.avatar || '',
+    }
+  })
 
-  const profile = savedProfile || {
-    name: 'Alex Morgan',
-    username: 'alexmorgan',
-    bio: 'Creative designer passionate about branding, visual storytelling and creating meaningful experiences.',
-    profession: 'Designer',
-  }
+  const [stats, setStats] = useState({
+    followers: 0,
+    projects: 0,
+    courses: 0,
+  })
+
+  useEffect(() => {
+    api.getProfile().then((res) => {
+      if (res && res.success && res.data) {
+        const u = res.data
+        setProfile({
+          name: u.name || 'Creator',
+          username: u.username || (u.email ? u.email.split('@')[0] : 'creator'),
+          bio: u.bio || 'Creator on CraftLoop.',
+          profession: u.title || 'Creator',
+          avatar: u.avatar || '',
+        })
+        setStats((prev) => ({
+          ...prev,
+          followers: u.followersCount || u.followers?.length || 0,
+        }))
+      }
+    }).catch(() => {})
+
+    api.getProjects().then((res) => {
+      if (res && res.data && Array.isArray(res.data)) {
+        setStats((prev) => ({ ...prev, projects: res.data.length }))
+      }
+    }).catch(() => {})
+
+    api.getCourses().then((res) => {
+      if (res && res.data && Array.isArray(res.data)) {
+        setStats((prev) => ({ ...prev, courses: res.data.length }))
+      }
+    }).catch(() => {})
+  }, [])
 
   const profileLink = `https://craftloop.app/creator/${profile.username}`
 
@@ -103,10 +141,16 @@ function Share() {
           <div className="share-profile-card">
 
             <div className="share-avatar">
-              <img
-                src="https://i.pravatar.cc/150?img=47"
-                alt="Profile"
-              />
+              {profile.avatar ? (
+                <img
+                  src={profile.avatar}
+                  alt="Profile"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-purple-600 text-2xl font-bold text-white rounded-full">
+                  {(profile.name || 'C').slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
 
             <h2>{profile.name}</h2>
@@ -125,17 +169,17 @@ function Share() {
 
             <div className="share-stats">
               <div>
-                <strong>2.4K</strong>
+                <strong>{stats.followers}</strong>
                 <span>Followers</span>
               </div>
 
               <div>
-                <strong>24</strong>
+                <strong>{stats.projects}</strong>
                 <span>Projects</span>
               </div>
 
               <div>
-                <strong>12</strong>
+                <strong>{stats.courses}</strong>
                 <span>Courses</span>
               </div>
             </div>

@@ -7,6 +7,7 @@ function ViewerProfile() {
 
   const [coursesStarted, setCoursesStarted] = useState(0)
   const [lessonsCompleted, setLessonsCompleted] = useState(0)
+  const [savedProjectsCount, setSavedProjectsCount] = useState(0)
 
   const [profile, setProfile] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('craftloop_user') || 'null')
@@ -18,8 +19,9 @@ function ViewerProfile() {
     }
   })
 
-  const viewerName = profile.name
-  const viewerUsername = profile.username
+  const viewerName = profile?.name || 'Viewer'
+  const viewerUsername = profile?.username || 'viewer'
+  const viewerInitials = (viewerName || 'V').slice(0, 2).toUpperCase()
 
   useEffect(() => {
     if (api.isAuthenticated()) {
@@ -34,6 +36,16 @@ function ViewerProfile() {
               username: u.username || (u.email ? u.email.split('@')[0] : prev.username),
               avatar: u.avatar || prev.avatar,
             }))
+            const stored = JSON.parse(localStorage.getItem('craftloopViewerProfile') || '{}')
+            localStorage.setItem(
+              'craftloopViewerProfile',
+              JSON.stringify({
+                ...stored,
+                name: u.name || stored.name || 'Viewer',
+                username: u.username || (u.email ? u.email.split('@')[0] : (stored.username || 'viewer')),
+                avatar: u.avatar || stored.avatar || '',
+              })
+            )
           }
         })
         .catch(() => {})
@@ -50,6 +62,15 @@ function ViewerProfile() {
               return total + lessons
             }, 0)
             setLessonsCompleted(completedCount)
+          }
+        })
+        .catch(() => {})
+
+      api
+        .getSavedProjects()
+        .then((res) => {
+          if (res && res.data && Array.isArray(res.data)) {
+            setSavedProjectsCount(res.data.length)
           }
         })
         .catch(() => {})
@@ -85,17 +106,25 @@ function ViewerProfile() {
 
             <div className="flex items-end gap-5">
 
-              {profile.avatar ? (
+              {profile?.avatar ? (
                 <img
                   src={profile.avatar}
                   alt="Viewer profile"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    if (e.currentTarget.nextElementSibling) {
+                      e.currentTarget.nextElementSibling.style.display = 'flex';
+                    }
+                  }}
                   className="h-28 w-28 rounded-2xl border-4 border-white object-cover shadow-md"
                 />
-              ) : (
-                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-white bg-purple-600 text-3xl font-bold text-white shadow-md">
-                  {(profile.name || 'V').slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              ) : null}
+              <div
+                style={{ display: profile?.avatar ? 'none' : 'flex' }}
+                className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-white bg-purple-600 text-3xl font-bold text-white shadow-md"
+              >
+                {viewerInitials}
+              </div>
 
               <div className="pb-2">
 

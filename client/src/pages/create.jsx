@@ -110,48 +110,29 @@ function Create() {
       }
 
       if (api.isAuthenticated()) {
-        try {
-          if (editingProjectId) {
-            const res = await api.updateProject(editingProjectId, payload)
-            if (res && res.data) {
-              backendProject = res.data
-            }
+        if (editingProjectId) {
+          const res = await api.updateProject(editingProjectId, payload)
+          if (res && res.data) {
+            backendProject = res.data
           } else {
-            const res = await api.createProject(payload)
-            if (res && res.data) {
-              backendProject = res.data
-            }
+            throw new Error(res?.message || 'Failed to update project.')
           }
-        } catch (apiErr) {
-          console.warn('Backend project error:', apiErr)
+        } else {
+          const res = await api.createProject(payload)
+          if (res && res.data) {
+            backendProject = res.data
+          } else {
+            throw new Error(res?.message || 'Failed to create project.')
+          }
         }
+      } else {
+        throw new Error('Please log in to create or update projects.')
       }
-
-      const savedProjects = JSON.parse(
-        localStorage.getItem('craftloopProjects') || '[]'
-      )
-      const projects = Array.isArray(savedProjects) ? savedProjects : []
-      const finalProject = backendProject || {
-        id: editingProjectId || Date.now(),
-        ...payload,
-        createdAt: new Date().toISOString(),
-      }
-
-      const updatedProjects = editingProjectId
-        ? projects.map((p) =>
-            (p._id || p.id) === editingProjectId ? finalProject : p
-          )
-        : [finalProject, ...projects]
-
-      localStorage.setItem(
-        'craftloopProjects',
-        JSON.stringify(updatedProjects)
-      )
 
       alert(
         editingProjectId
-          ? 'Project updated successfully!'
-          : 'Project saved successfully!'
+          ? 'Project updated successfully in MongoDB!'
+          : 'Project saved successfully in MongoDB!'
       )
 
       setProjectForm({
@@ -245,44 +226,19 @@ function Create() {
       }
 
       if (api.isAuthenticated()) {
-        try {
-          const res = await api.createCourse(payload)
-          if (res && res.data) {
-            backendCourse = res.data
-          }
-        } catch (apiErr) {
-          console.warn('Backend course creation error:', apiErr)
+        const res = await api.createCourse(payload)
+        if (res && res.data) {
+          backendCourse = res.data
+        } else {
+          throw new Error(res?.message || 'Failed to create course in MongoDB.')
         }
+      } else {
+        throw new Error('Please log in to create a course.')
       }
 
-      const savedCourses = JSON.parse(
-        localStorage.getItem('craftloopCourses') || '[]'
-      )
-      const courses = Array.isArray(savedCourses)
-        ? savedCourses
-        : []
+      alert('Course saved successfully in MongoDB!')
 
-      const newCourse = backendCourse || {
-        id: Date.now(),
-        ...payload,
-        createdAt: new Date().toISOString(),
-      }
-
-      const updatedCourses = [
-        newCourse,
-        ...courses.filter(
-          (c) => (c._id || c.id) !== (newCourse._id || newCourse.id)
-        ),
-      ]
-
-      localStorage.setItem(
-        'craftloopCourses',
-        JSON.stringify(updatedCourses)
-      )
-
-      alert('Course saved successfully!')
-
-      const targetId = newCourse._id || newCourse.id
+      const targetId = backendCourse._id || backendCourse.id
       navigate(`/course-details?courseId=${targetId}`)
     } catch (err) {
       console.error('Course submit error:', err)

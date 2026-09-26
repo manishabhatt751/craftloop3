@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 
+const isVideoUrl = (url = '') => {
+  if (!url) return false
+  const clean = url.split('?')[0].toLowerCase()
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.ogg') ||
+    clean.endsWith('.mkv') ||
+    clean.includes('/video/')
+  )
+}
+
 function ViewerExplore() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -10,77 +23,7 @@ function ViewerExplore() {
   const [search, setSearch] = useState(queryParam)
   const [category, setCategory] = useState('All')
   const [loading, setLoading] = useState(false)
-
-  const defaultItems = [
-    {
-      id: 1,
-      title: 'Alex Morgan',
-      type: 'Creator',
-      category: 'Design',
-      description:
-        'UI/UX designer helping businesses create modern and user-friendly digital experiences.',
-      skills: ['UI/UX', 'Design', 'Figma'],
-      image:
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 2,
-      title: 'Modern Brand Flyer',
-      type: 'Project',
-      category: 'Graphic Design',
-      description:
-        'A creative branding and flyer design project created for a modern business.',
-      skills: ['Graphic Design', 'Flyer', 'Branding'],
-      image:
-        'https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 3,
-      title: 'Complete UI UX Design',
-      type: 'Course',
-      category: 'Design',
-      description:
-        'Learn UI/UX design from fundamentals to practical design projects.',
-      skills: ['UI/UX', 'Design System', 'Prototyping'],
-      image:
-        'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 4,
-      title: 'Sarah Wilson',
-      type: 'Creator',
-      category: 'Development',
-      description:
-        'Full-stack developer creating websites and digital solutions for businesses.',
-      skills: ['Web Development', 'React', 'Node.js'],
-      image:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 5,
-      title: 'Creative Portfolio Website',
-      type: 'Project',
-      category: 'Development',
-      description:
-        'A responsive portfolio website designed for a creative professional.',
-      skills: ['HTML', 'CSS', 'JavaScript'],
-      image:
-        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 6,
-      title: 'Digital Marketing Basics',
-      type: 'Course',
-      category: 'Marketing',
-      description:
-        'Understand digital marketing, SEO, social media and online promotion.',
-      skills: ['Marketing', 'SEO', 'Content Strategy'],
-      image:
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=900&q=80',
-    },
-  ]
-
-  const [items, setItems] = useState(defaultItems)
+  const [items, setItems] = useState([])
   const [savedProjectIds, setSavedProjectIds] = useState([])
 
   // Sync state if URL query param changes
@@ -180,11 +123,10 @@ function ViewerExplore() {
           })
         }
 
-        if (combined.length > 0) {
-          setItems(combined)
-        }
+        setItems(combined)
       } catch (err) {
         console.error('Error fetching explore data:', err)
+        setItems([])
       } finally {
         if (isMounted) setLoading(false)
       }
@@ -306,13 +248,27 @@ function ViewerExplore() {
               key={item.id}
               className="overflow-hidden rounded-3xl border border-purple-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
             >
-              {/* Image */}
-              <div className="h-48 overflow-hidden bg-purple-100">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="h-full w-full object-cover transition duration-300 hover:scale-105"
-                />
+              {/* Media (Video or Image) */}
+              <div className="flex h-48 items-center justify-center overflow-hidden bg-black">
+                {item.image ? (
+                  isVideoUrl(item.image) ? (
+                    <video
+                      src={item.image}
+                      controls
+                      preload="metadata"
+                      playsInline
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                    />
+                  )
+                ) : (
+                  <span className="text-4xl">🎨</span>
+                )}
               </div>
 
               {/* Content */}

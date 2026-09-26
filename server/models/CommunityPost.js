@@ -56,6 +56,20 @@ const communityPostSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      default: null,
+    },
+    projectUrl: {
+      type: String,
+      default: null,
+    },
+    postType: {
+      type: String,
+      enum: ["text", "project"],
+      default: "text",
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,

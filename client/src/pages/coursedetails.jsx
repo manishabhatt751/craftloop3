@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
+import PracticeModal from '../Components/PracticeModal'
 
 function CourseDetails() {
   const navigate = useNavigate()
@@ -10,6 +11,10 @@ function CourseDetails() {
   const [courses, setCourses] = useState([])
   const [course, setCourse] = useState(null)
   const [lessons, setLessons] = useState([])
+  const [practices, setPractices] = useState([])
+  const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false)
+  const [selectedPracticeForCreator, setSelectedPracticeForCreator] = useState(null)
+  const [selectedLessonForPractice, setSelectedLessonForPractice] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingLesson, setSavingLesson] = useState(false)
   const [error, setError] = useState(null)
@@ -24,6 +29,8 @@ function CourseDetails() {
     duration: '',
   })
 
+  const [uploadingLessonVideo, setUploadingLessonVideo] = useState(false)
+
   const fetchCourses = async () => {
     try {
       setLoading(true)
@@ -31,21 +38,10 @@ function CourseDetails() {
       let courseList = []
 
       if (api.isAuthenticated()) {
-        try {
-          const res = await api.getCourses({ mine: 'true' })
-          if (res && res.success && Array.isArray(res.data)) {
-            courseList = res.data
-          }
-        } catch (apiErr) {
-          console.warn('Backend getCourses error, checking local fallback:', apiErr)
+        const res = await api.getCourses({ mine: 'true' })
+        if (res && res.success && Array.isArray(res.data)) {
+          courseList = res.data
         }
-      }
-
-      if (courseList.length === 0) {
-        const savedCourses = JSON.parse(
-          localStorage.getItem('craftloopCourses') || '[]'
-        )
-        courseList = Array.isArray(savedCourses) ? savedCourses : []
       }
 
       setCourses(courseList)
@@ -63,13 +59,9 @@ function CourseDetails() {
 
       setCourse(selected)
       setLessons(selected?.lessons || [])
-
-      if (courseList.length > 0) {
-        localStorage.setItem('craftloopCourses', JSON.stringify(courseList))
-      }
     } catch (err) {
       console.error('Error fetching course data:', err)
-      setError('Failed to load courses from server.')
+      setError('Failed to load courses from MongoDB Atlas.')
     } finally {
       setLoading(false)
     }
@@ -78,6 +70,23 @@ function CourseDetails() {
   useEffect(() => {
     fetchCourses()
   }, [queryCourseId])
+
+  // Fetch practice challenges for the active course
+  useEffect(() => {
+    const courseId = course?._id || course?.id
+    if (courseId) {
+      api
+        .getPracticesByCourse(courseId)
+        .then((res) => {
+          if (res && res.data && Array.isArray(res.data)) {
+            setPractices(res.data)
+          }
+        })
+        .catch((err) => {
+          console.warn('Practices fetch notice:', err.message || err)
+        })
+    }
+  }, [course])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -88,24 +97,39 @@ function CourseDetails() {
     }))
   }
 
-  const saveLessons = async (updatedLessons) => {
-    setLessons(updatedLessons)
+  const handleLessonVideoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    if (!course) return
-
-    const courseId = course._id || course.id
-    const updatedCourse = {
-      ...course,
-      lessons: updatedLessons,
+    const FIVE_GB = 5000 * 1024 * 1024
+    if (file.size > FIVE_GB) {
+      alert('File exceeds the 5 GB limit. Maximum file size: 5 GB.')
+      return
     }
 
-    setCourse(updatedCourse)
+    try {
+      setUploadingLessonVideo(true)
+      const res = await api.uploadMedia(file, 'craftloop/lessons')
+      if (res && res.success && res.url) {
+        setLessonForm((prev) => ({
+          ...prev,
+          videoUrl: res.url,
+        }))
+        alert('Lesson video uploaded successfully!')
+      } else {
+        throw new Error(res?.message || 'Video upload failed.')
+      }
+    } catch (err) {
+      console.error('Lesson video upload failed:', err)
+      alert(err.message || 'Video upload failed. Please try again.')
+    } finally {
+      setUploadingLessonVideo(false)
+    }
+  }
 
-    const updatedCourses = courses.map((item) =>
-      (item._id || item.id) === courseId ? updatedCourse : item
-    )
-    setCourses(updatedCourses)
-    localStorage.setItem('craftloopCourses', JSON.stringify(updatedCourses))
+  const saveLessons = async (updatedLessons) => {
+    if (!course) return
+    const courseId = course._id || course.id
 
     if (api.isAuthenticated()) {
       try {
@@ -122,13 +146,19 @@ function CourseDetails() {
           lessons: cleanLessons,
         })
 
-        if (res && res.data && Array.isArray(res.data.lessons)) {
-          setLessons(res.data.lessons)
-          setCourse(res.data)
+        if (res && res.data) {
+          const updated = res.data
+          setCourse(updated)
+          setLessons(Array.isArray(updated.lessons) ? updated.lessons : cleanLessons)
+          setCourses((prev) =>
+            prev.map((item) =>
+              (item._id || item.id) === courseId ? updated : item
+            )
+          )
         }
       } catch (err) {
         console.error('Failed to sync lessons with backend:', err)
-        alert('Notice: Lessons updated locally, but server sync failed.')
+        alert('Failed to save lessons to MongoDB Atlas. Please try again.')
       } finally {
         setSavingLesson(false)
       }
@@ -503,24 +533,57 @@ function CourseDetails() {
                 />
               </div>
 
-              {/* VIDEO */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Video URL
+              {/* VIDEO UPLOAD & URL */}
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Lesson Video (File Upload or URL)
                 </label>
 
-                <input
-                  type="url"
-                  name="videoUrl"
-                  value={lessonForm.videoUrl}
-                  onChange={handleChange}
-                  placeholder="https://youtube.com/..."
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-                />
+                {/* File Upload Button */}
+                <div className="rounded-xl border border-dashed border-purple-200 bg-purple-50/50 p-4 text-center transition hover:bg-purple-50">
+                  <input
+                    type="file"
+                    id="lessonVideoInput"
+                    accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                    onChange={handleLessonVideoUpload}
+                    disabled={uploadingLessonVideo}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="lessonVideoInput"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-1"
+                  >
+                    <span className="text-2xl">📹</span>
+                    <span className="text-sm font-semibold text-purple-700">
+                      {uploadingLessonVideo
+                        ? 'Uploading video (up to 5 GB)...'
+                        : 'Click to upload lesson video file'}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      MP4, WEBM, MOV up to 5 GB (Direct high-speed streaming)
+                    </span>
+                  </label>
+                </div>
 
-                <p className="mt-2 text-xs text-gray-400">
-                  Optional — add your YouTube or video link.
-                </p>
+                {/* Or URL input */}
+                <div>
+                  <p className="mb-1 text-xs font-medium text-gray-500">
+                    Or provide a video URL / YouTube link:
+                  </p>
+                  <input
+                    type="url"
+                    name="videoUrl"
+                    value={lessonForm.videoUrl}
+                    onChange={handleChange}
+                    placeholder="https://... or uploaded video URL"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                  />
+                  {lessonForm.videoUrl && (
+                    <p className="mt-1 text-xs text-green-600">
+                      ✓ Video linked: {lessonForm.videoUrl.slice(0, 60)}...
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* DURATION */}
@@ -669,6 +732,22 @@ function CourseDetails() {
                         </button>
 
                         <button
+                          onClick={() => {
+                            setSelectedLessonForPractice(lesson)
+                            const matched = practices.find(
+                              (p) =>
+                                String(p.lessonId) === String(lesson._id || lesson.id) ||
+                                p.lessonTitle?.trim().toLowerCase() === lesson.title?.trim().toLowerCase()
+                            )
+                            setSelectedPracticeForCreator(matched || null)
+                            setIsPracticeModalOpen(true)
+                          }}
+                          className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100 transition shadow-2xs"
+                        >
+                          🎯 Practice
+                        </button>
+
+                        <button
                           onClick={() => handleEditLesson(lesson)}
                           className="rounded-lg border border-purple-200 px-3 py-2 text-sm font-semibold text-purple-600 hover:bg-purple-50"
                         >
@@ -696,6 +775,23 @@ function CourseDetails() {
         </div>
 
       </div>
+
+      {/* Practice Modal */}
+      <PracticeModal
+        isOpen={isPracticeModalOpen}
+        onClose={() => setIsPracticeModalOpen(false)}
+        practiceId={selectedPracticeForCreator?._id}
+        initialPractice={selectedPracticeForCreator}
+        course={course}
+        lesson={selectedLessonForPractice}
+        onStatusUpdate={(pId, newStatus) => {
+          setPractices((prev) =>
+            prev.map((p) =>
+              (p._id || p.id) === pId ? { ...p, userStatus: newStatus } : p
+            )
+          )
+        }}
+      />
     </div>
   )
 }

@@ -42,6 +42,8 @@ import ViewerNotification from './pages/viewernotification'
 import ViewerSettings from './pages/viewersettings'
 import ViewerHelpSupport from './pages/viewerhelpsupport'
 import SavedProjects from './pages/savedprojects'
+import ProjectViewWrapper from './pages/ProjectViewWrapper'
+import PracticePage from './pages/PracticePage'
 
 
 function App() {
@@ -277,6 +279,32 @@ function App() {
           />
 
         </Route>
+
+
+        {/* =========================
+            SHARED PROJECT DETAILS
+        ========================= */}
+        <Route
+          path="/project/:id"
+          element={
+            <ProtectedRoute>
+              <ProjectViewWrapper />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* =========================
+            PRACTICE ACTIVITY
+        ========================= */}
+        <Route
+          path="/practice/:practiceId"
+          element={
+            <ProtectedRoute>
+              <PracticePage />
+            </ProtectedRoute>
+          }
+        />
 
 
         {/* =========================

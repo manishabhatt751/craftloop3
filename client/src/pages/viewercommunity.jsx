@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 
 const formatTimeAgo = (dateStr) => {
@@ -28,6 +29,7 @@ const safeGetJSON = (key, fallback) => {
 }
 
 function ViewerCommunity() {
+  const navigate = useNavigate()
   const [post, setPost] = useState('')
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -56,6 +58,9 @@ function ViewerCommunity() {
       ? likesArr.some((id) => (id?._id || id)?.toString() === currentUserId?.toString())
       : false
 
+    const projectObj = typeof p.projectId === 'object' && p.projectId !== null ? p.projectId : null
+    const projectIdStr = projectObj?._id || (typeof p.projectId === 'string' ? p.projectId : null)
+
     return {
       id: p._id || p.id,
       _id: p._id || p.id,
@@ -63,6 +68,10 @@ function ViewerCommunity() {
       username: authorUsername,
       text: p.content,
       image: p.image || null,
+      postType: p.postType || (projectIdStr ? 'project' : 'text'),
+      projectId: projectIdStr,
+      project: projectObj,
+      projectUrl: p.projectUrl || (projectIdStr ? `/project/${projectIdStr}` : null),
       time: formatTimeAgo(p.createdAt),
       likes: likesArr.length,
       liked: isLiked,
@@ -330,8 +339,97 @@ function ViewerCommunity() {
                   {item.text}
                 </p>
 
+                {/* Shared Project Preview Card */}
+                {(item.postType === 'project' || item.projectId) && (
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-purple-200/90 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 p-5 shadow-xs transition hover:shadow-md hover:border-purple-300">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      {/* Thumbnail */}
+                      <div className="relative h-32 w-full overflow-hidden rounded-xl bg-purple-100 sm:w-44 sm:flex-shrink-0">
+                        {item.project?.image || item.image ? (
+                          <img
+                            src={item.project?.image || item.image}
+                            alt={item.project?.title || 'Project'}
+                            className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-3xl">
+                            🎨
+                          </div>
+                        )}
+                        <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                          CraftLoop Project
+                        </span>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex flex-1 flex-col justify-between self-stretch">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-md bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                              {item.project?.category || 'Creative Work'}
+                            </span>
+                            {item.project?.status && (
+                              <span className="text-xs text-gray-400">• {item.project.status}</span>
+                            )}
+                          </div>
+
+                          <h4 className="mt-2 text-lg font-bold text-gray-900">
+                            {item.project?.title || 'Shared Project'}
+                          </h4>
+
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-gray-600">
+                            {item.project?.description || 'Explore this creative project on CraftLoop.'}
+                          </p>
+
+                          {item.project?.tags && item.project.tags.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {item.project.tags.slice(0, 3).map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-purple-100/60 pt-3">
+                          <span className="text-xs font-medium text-purple-600">
+                            Shared from CraftLoop Portfolio
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetId = item.projectId || item.project?._id
+                              if (targetId) {
+                                navigate(`/project/${targetId}`)
+                              } else if (item.projectUrl) {
+                                const internalMatch = item.projectUrl.match(/\/project\/([a-zA-Z0-9]+)/)
+                                if (internalMatch) {
+                                  navigate(`/project/${internalMatch[1]}`)
+                                } else {
+                                  window.location.href = item.projectUrl
+                                }
+                              }
+                            }}
+                            className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 active:scale-95"
+                          >
+                            <span>View Project</span>
+                            <span>→</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Optional Image */}
-                {item.image && (
+                {item.postType !== 'project' && item.image && (
                   <div className="mt-4 overflow-hidden rounded-2xl border border-purple-50 bg-gray-50">
                     <img
                       src={item.image}

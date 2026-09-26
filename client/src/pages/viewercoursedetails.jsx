@@ -1,161 +1,44 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../services/api'
+import PracticeModal from '../Components/PracticeModal'
 
 function ViewerCourseDetails() {
   const navigate = useNavigate()
   const { courseId } = useParams()
 
-  const courses = [
-    {
-      id: '1',
-      title: 'Complete UI UX Design',
-      category: 'Design',
-      level: 'Beginner',
-      creator: 'Alex Morgan',
-      lessons: 12,
-      duration: '4h 30m',
-      students: 240,
-      image:
-        'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Learn the fundamentals of UI UX design and create modern digital experiences. This course covers important design concepts, user experience principles and practical design workflows.',
-      learn: [
-        'Understand basic UI UX principles',
-        'Create user friendly interfaces',
-        'Learn design thinking concepts',
-        'Build practical design projects',
-      ],
-    },
-    {
-      id: '2',
-      title: 'Graphic Design with Canva',
-      category: 'Design',
-      level: 'Beginner',
-      creator: 'Sarah Wilson',
-      lessons: 10,
-      duration: '3h 20m',
-      students: 180,
-      image:
-        'https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Learn how to create professional graphics, social media designs and presentations using Canva and modern design techniques.',
-      learn: [
-        'Learn Canva design tools',
-        'Create professional graphics',
-        'Design social media content',
-        'Create attractive presentations',
-      ],
-    },
-    {
-      id: '3',
-      title: 'React for Beginners',
-      category: 'Development',
-      level: 'Beginner',
-      creator: 'Daniel Smith',
-      lessons: 15,
-      duration: '5h 10m',
-      students: 320,
-      image:
-        'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Start building interactive websites using React and modern JavaScript. Learn components, state, props and practical React development.',
-      learn: [
-        'Understand React fundamentals',
-        'Create reusable components',
-        'Work with state and props',
-        'Build interactive web applications',
-      ],
-    },
-    {
-      id: '4',
-      title: 'Content Writing Masterclass',
-      category: 'Content',
-      level: 'Intermediate',
-      creator: 'Emma Johnson',
-      lessons: 8,
-      duration: '2h 45m',
-      students: 145,
-      image:
-        'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Learn content writing, storytelling and techniques for creating engaging content for different audiences and platforms.',
-      learn: [
-        'Learn effective writing techniques',
-        'Create engaging content',
-        'Understand storytelling',
-        'Write for different audiences',
-      ],
-    },
-    {
-      id: '5',
-      title: 'Digital Marketing Basics',
-      category: 'Business',
-      level: 'Beginner',
-      creator: 'Ryan Taylor',
-      lessons: 11,
-      duration: '3h 50m',
-      students: 210,
-      image:
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Understand digital marketing, branding, social media and online growth strategies to build a strong digital presence.',
-      learn: [
-        'Understand digital marketing',
-        'Learn social media strategies',
-        'Understand online branding',
-        'Explore growth strategies',
-      ],
-    },
-    {
-      id: '6',
-      title: 'Figma Prototyping',
-      category: 'UX',
-      level: 'Intermediate',
-      creator: 'Olivia Brown',
-      lessons: 9,
-      duration: '3h 15m',
-      students: 165,
-      image:
-        'https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=1200&q=80',
-      description:
-        'Create professional prototypes and improve your UX workflow using Figma. Learn how to turn ideas into interactive designs.',
-      learn: [
-        'Understand Figma basics',
-        'Create interactive prototypes',
-        'Build user flows',
-        'Improve your UX workflow',
-      ],
-    },
-  ]
-
-  const [course, setCourse] = useState(() => {
-    return courses.find((item) => String(item.id) === String(courseId)) || null
-  })
-  const [isLoading, setIsLoading] = useState(!course)
+  const [course, setCourse] = useState(null)
+  const [practices, setPractices] = useState([])
+  const [selectedPractice, setSelectedPractice] = useState(null)
+  const [selectedLesson, setSelectedLesson] = useState(null)
+  const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const staticCourse = courses.find((item) => String(item.id) === String(courseId))
-    if (staticCourse) {
-      setCourse(staticCourse)
+    if (!courseId) {
+      setCourse(null)
       setIsLoading(false)
       return
     }
 
     setIsLoading(true)
+
+    // Fetch course details
     api
       .getCourseById(courseId)
       .then((res) => {
         if (res && res.data) {
           const dbCourse = res.data
           const instructorName = dbCourse.instructor?.name || dbCourse.creator?.name || 'CraftLoop Creator'
+          const rawLessonsList = Array.isArray(dbCourse.lessons) ? dbCourse.lessons : []
           setCourse({
             id: dbCourse._id,
             title: dbCourse.title,
             category: dbCourse.category || 'General',
             level: dbCourse.level || 'Beginner',
             creator: instructorName,
-            lessons: Array.isArray(dbCourse.lessons) ? dbCourse.lessons.length : 0,
+            lessonsCount: rawLessonsList.length,
+            rawLessons: rawLessonsList,
             duration: 'Flexible',
             students: Array.isArray(dbCourse.enrolledStudents) ? dbCourse.enrolledStudents.length : 0,
             image:
@@ -175,11 +58,24 @@ function ViewerCourseDetails() {
           setCourse(null)
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to load course details from MongoDB:', err)
         setCourse(null)
       })
       .finally(() => {
         setIsLoading(false)
+      })
+
+    // Fetch practices for this course
+    api
+      .getPracticesByCourse(courseId)
+      .then((res) => {
+        if (res && res.data && Array.isArray(res.data)) {
+          setPractices(res.data)
+        }
+      })
+      .catch((err) => {
+        console.warn('Practice fetch notice:', err.message || err)
       })
   }, [courseId])
 
@@ -293,7 +189,7 @@ function ViewerCourseDetails() {
               </p>
 
               <p className="mt-2 text-xl font-bold text-gray-900">
-                {course.lessons}
+                {course.rawLessons?.length || course.lessonsCount || 0}
               </p>
             </div>
 
@@ -344,6 +240,103 @@ function ViewerCourseDetails() {
 
           </div>
 
+          {/* Course Lessons & Practice Section */}
+          <div className="mt-10 border-t border-purple-50 pt-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Course Lessons & Practice
+                </h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  Watch step-by-step lessons and complete practical challenges to build your portfolio.
+                </p>
+              </div>
+              <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                {course.rawLessons?.length || 0} Lessons
+              </span>
+            </div>
+
+            {(!course.rawLessons || course.rawLessons.length === 0) ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-xs text-gray-400">
+                Lessons for this course will be available soon.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {course.rawLessons.map((les, idx) => {
+                  const lessonNum = String(idx + 1).padStart(2, '0')
+                  const matchedPractice = practices.find(
+                    (p) =>
+                      String(p.lessonId) === String(les._id || les.id) ||
+                      p.lessonTitle?.trim().toLowerCase() === les.title?.trim().toLowerCase()
+                  )
+
+                  return (
+                    <div
+                      key={les._id || les.id || idx}
+                      className="rounded-2xl border border-purple-100 bg-white p-5 transition hover:border-purple-300 hover:shadow-xs flex flex-wrap items-center justify-between gap-4"
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <span className="font-mono text-sm font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg">
+                          {lessonNum}
+                        </span>
+                        <div>
+                          <h3 className="font-bold text-gray-900 text-sm">
+                            {les.title}
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {les.duration || '10 min'}
+                            {les.description ? ` • ${les.description.slice(0, 70)}...` : ''}
+                          </p>
+                          {matchedPractice && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 bg-purple-50/70 px-2 py-0.5 rounded-md">
+                                🎯 {matchedPractice.title}
+                              </span>
+                              {matchedPractice.userStatus && (
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                                  {matchedPractice.userStatus.replace('-', ' ')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const isMongoId = course.id && /^[0-9a-fA-F]{24}$/.test(String(course.id))
+                            if (api.isAuthenticated() && isMongoId) {
+                              try {
+                                await api.enrollInCourse(course.id)
+                              } catch (_) {}
+                            }
+                            navigate(`/watchlesson/${course.id}`)
+                          }}
+                          className="rounded-xl border border-purple-200 bg-purple-50/80 px-4 py-2 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs"
+                        >
+                          Watch Lesson
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedLesson(les)
+                            setSelectedPractice(matchedPractice || null)
+                            setIsPracticeModalOpen(true)
+                          }}
+                          className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition shadow-2xs"
+                        >
+                          Practice
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Start Course */}
           <button
@@ -361,7 +354,7 @@ function ViewerCourseDetails() {
 
               navigate(`/watchlesson/${course.id}`)
             }}
-            className="mt-8 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+            className="mt-8 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-purple-700 shadow-md shadow-purple-200"
           >
             Start Course
           </button>
@@ -369,6 +362,23 @@ function ViewerCourseDetails() {
         </div>
 
       </section>
+
+      {/* Practice Modal */}
+      <PracticeModal
+        isOpen={isPracticeModalOpen}
+        onClose={() => setIsPracticeModalOpen(false)}
+        practiceId={selectedPractice?._id}
+        initialPractice={selectedPractice}
+        course={course}
+        lesson={selectedLesson}
+        onStatusUpdate={(pId, newStatus) => {
+          setPractices((prev) =>
+            prev.map((p) =>
+              (p._id || p.id) === pId ? { ...p, userStatus: newStatus } : p
+            )
+          )
+        }}
+      />
 
     </div>
   )
